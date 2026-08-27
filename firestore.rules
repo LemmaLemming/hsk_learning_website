@@ -1,18 +1,108 @@
-rules_version='2'
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId} (== Firebase Auth UID; immutable)
+// Fields:
+//   - displayName: string (required, 1-100 chars)
+//   - characterType: string enum ['simplified','traditional'] (required)
+//   - visibleFields: list of string enum (required, <= 10 items)
+//     valid values: pinyin, toneNumber, wadeGiles, bopomofo, gwoyeu,
+//                   meaning, partsOfSpeech, radical, frequency, classifiers
+//   - createdAt: timestamp (required, immutable)
+//   - updatedAt: timestamp (required)
+//
+// Collection: users/{userId}/sets
+// Document ID: {setId} (auto-generated; immutable)
+// Fields:
+//   - name: string (required, 1-100 chars)
+//   - createdAt: timestamp (required, immutable)
+//   - updatedAt: timestamp (required)
+//   - shuffled: bool (required)
+//   - subsetSize: int | null (required; null or 1-10000)
+//   - items: list of VocabItem (required, <= 20000 items)
+//     VocabItem = { level: int 1-7, vocabId: int >=1, status: enum
+//                   ['unlearned','learnt','skipped'] }
+//
+// Access model:
+//   - Users may only read/write their OWN users/{uid} document.
+//   - Users may only CRUD their OWN users/{uid}/sets/{setId} subcollection.
+//   - No public/anonymous access to any collection.
+//   - No role fields exist, so privilege escalation via document data is
+//     structurally impossible.
+//
+// ===============================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 9, 26);
+
+    // -----------------------------------------------------------
+    // Helper Functions
+    // -----------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isCharacterType(value) {
+      return value == 'simplified' || value == 'traditional';
+    }
+
+    function isValidUserDoc(data) {
+      return data.keys().hasOnly(
+          ['displayName', 'characterType', 'visibleFields', 'createdAt', 'updatedAt'])
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 100
+        && isCharacterType(data.characterType)
+        && data.visibleFields is list
+        && data.visibleFields.size() <= 10;
+    }
+
+    // NOTE: The rules language has no loops, so individual elements of the
+    // `items` list cannot be validated here. We still enforce the list type
+    // and a hard size cap to prevent 1MB+ DoS payloads. Per-item schema
+    // enforcement (if ever required) must happen server-side or in the app.
+    function isValidSetDoc(data) {
+      return data.keys().hasOnly(
+          ['name', 'createdAt', 'updatedAt', 'shuffled', 'subsetSize', 'items'])
+        && data.name is string
+        && data.name.size() >= 1
+        && data.name.size() <= 100
+        && data.shuffled is bool
+        && (data.subsetSize == null
+            || (data.subsetSize is int && data.subsetSize >= 1 && data.subsetSize <= 10000))
+        && data.items is list
+        && data.items.size() <= 20000;
+    }
+
+    // -----------------------------------------------------------
+    // Rules
+    // -----------------------------------------------------------
+
+    match /users/{userId} {
+      allow create: if isOwner(userId) && isValidUserDoc(request.resource.data);
+      allow read: if isOwner(userId);
+      allow update: if isOwner(userId)
+        && isValidUserDoc(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId);
+
+      match /sets/{setId} {
+        allow create: if isOwner(userId) && isValidSetDoc(request.resource.data);
+        allow read: if isOwner(userId);
+        allow update: if isOwner(userId)
+          && isValidSetDoc(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId);
+      }
     }
   }
 }

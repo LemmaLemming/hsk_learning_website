@@ -1,6 +1,49 @@
-import React from "react";
-import Login from "./components/Login.tsx";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Login from "./components/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import SetList from "./pages/SetList";
+import Settings from "./pages/Settings";
+import CreateSet from "./pages/CreateSet";
+import SetDetail from "./pages/SetDetail";
 
 export default function App() {
-  return <Login />;
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <SetList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sets/new"
+        element={
+          <ProtectedRoute>
+            <CreateSet />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sets/:setId"
+        element={
+          <ProtectedRoute>
+            <SetDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
 }

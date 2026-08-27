@@ -17,6 +17,7 @@
     "@types/react-dom": "^19.2.5",
     "firebase": "^12.18.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2"
   }
 }

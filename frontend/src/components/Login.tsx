@@ -1,14 +1,21 @@
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import {
   signInWithGoogle,
   signInWithEmail,
 } from "../firebase/firebaseConfig";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
+  const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleEmailSignIn = async () => {
     setLoading(true);
@@ -36,7 +43,9 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      <h2>HSK Learning App – Sign In</h2>
+      <div className="brand-seal">字</div>
+      <h2>HSK Learning App</h2>
+      <p className="placeholder">Sign in to keep learning your vocabulary.</p>
       <div className="email-login">
         <input
           type="email"
