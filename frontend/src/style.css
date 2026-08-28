@@ -714,7 +714,6 @@ label {
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--border-dark);
   background: #fff;
   user-select: none;
 }
