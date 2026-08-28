@@ -1042,6 +1042,13 @@ label {
   color: var(--text-dim);
 }
 
+.congrats-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .congrats-stars {
   font-size: 36px;
   margin-bottom: 12px;

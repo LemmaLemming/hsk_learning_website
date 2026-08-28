@@ -468,6 +468,22 @@ export default function SetDetail() {
                       onContinue={() =>
                         setPage((p) => Math.min(totalPages - 1, p + 1))
                       }
+                      onRedo={() => {
+                        // Re-tag every card of the current deck as unlearned.
+                        const deckCards = visibleSubsets[0] ?? [];
+                        if (deckCards.length === 0) return;
+                        const deckKeys = new Set(
+                          deckCards.map((h) => keyOf(h.item))
+                        );
+                        setItems((prev) =>
+                          prev.map((i) =>
+                            deckKeys.has(keyOf(i))
+                              ? { ...i, status: "unlearned" as VocabStatus }
+                              : i
+                          )
+                        );
+                        bump();
+                      }}
                     />
                   )}
                 </>

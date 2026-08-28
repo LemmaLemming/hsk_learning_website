@@ -30,6 +30,7 @@ interface Props {
   onSkip: (level: number, vocabId: number) => void; // distinct from status change
   onDeckComplete: () => void; // called when all cards in deck are "learnt"
   onContinue?: () => void; // called when the congrats popup is dismissed
+  onRedo?: () => void; // re-tags every deck card as unlearned and restarts the deck
 }
 
 const keyOf = (h: HydratedVocabItem) =>
@@ -45,6 +46,7 @@ export default function FlashcardDeck({
   onSkip,
   onDeckComplete,
   onContinue,
+  onRedo,
 }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [localDeck, setLocalDeck] = useState<HydratedVocabItem[]>([...deck]);
@@ -144,6 +146,16 @@ export default function FlashcardDeck({
   const handleContinue = () => {
     setShowCongrats(false);
     onContinue?.();
+  };
+
+  // Restart the deck: parent re-tags every card as unlearned, and we rebuild
+  // the local queue from the fresh deck.
+  const handleRedo = () => {
+    onRedo?.();
+    setLocalDeck([...deck]);
+    setViewIndex(0);
+    setFlipped(false);
+    setShowCongrats(false);
   };
 
   if (!current && !showCongrats) {
@@ -284,12 +296,17 @@ export default function FlashcardDeck({
               You learnt all {deck.length} word{deck.length === 1 ? "" : "s"}{" "}
               for today. 加油！
             </p>
-            <button
-              className="retro-btn primary"
-              onClick={handleContinue}
-            >
-              [ Continue ]
-            </button>
+            <div className="congrats-actions">
+              <button className="retro-btn" onClick={handleRedo}>
+                [ Redo ↺ ]
+              </button>
+              <button
+                className="retro-btn primary"
+                onClick={handleContinue}
+              >
+                [ Continue ]
+              </button>
+            </div>
           </div>
         </div>
       )}
