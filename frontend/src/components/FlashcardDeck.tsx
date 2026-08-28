@@ -67,7 +67,7 @@ export default function FlashcardDeck({
 
   const handleFlip = () => {
     if (!current) return;
-    setFlipped(true); // only flip forward; reset happens on card advance
+    setFlipped((f) => !f); // toggle front <-> back
   };
 
   const advanceCard = (updatedDeck: HydratedVocabItem[]) => {
@@ -128,14 +128,12 @@ export default function FlashcardDeck({
           {current && (
             <div
               className={`flashcard-wrapper${flipped ? " is-flipped" : ""}`}
-              onClick={!flipped ? handleFlip : undefined}
+              onClick={handleFlip}
               role="button"
-              aria-label={flipped ? "Card flipped" : "Click to reveal"}
+              aria-label={flipped ? "Card flipped; click to flip back" : "Click to reveal back"}
               tabIndex={0}
               onKeyDown={(e) => {
-                if (!flipped && (e.key === "Enter" || e.key === " ")) {
-                  handleFlip();
-                }
+                if (e.key === "Enter" || e.key === " ") handleFlip();
               }}
             >
               {/* Front face */}
