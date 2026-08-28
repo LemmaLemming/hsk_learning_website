@@ -602,7 +602,7 @@ export default function CreateSet() {
           body={CREATE_TOUR[tourStep - 2].body}
           placement={tourStep === 9 ? "top" : "bottom"}
           stepNumber={tourStep}
-          totalSteps={15}
+          totalSteps={16}
           onSkip={() => {
             void skipTour();
           }}

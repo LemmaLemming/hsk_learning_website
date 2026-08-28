@@ -89,12 +89,20 @@ export default function FlashcardDeck({
   const current = localDeck[viewIndex] ?? localDeck[0] ?? undefined;
   const remaining = localDeck.length;
 
-  // Label tutorial (steps 11-13): start when the status buttons first appear.
+  // Label tutorial: after the deck-size step, guide the user to flip a card.
+  // labelStep 0 = flip instruction, 1 = learnt, 2 = skip, 3 = not learnt.
   useEffect(() => {
-    if (tutorialLabels && flipped && current && labelStep === null) {
+    if (tutorialLabels && current && labelStep === null) {
+      setLabelStep(0);
+    }
+  }, [tutorialLabels, current, labelStep]);
+
+  // Auto-advance from the flip instruction once the card is flipped.
+  useEffect(() => {
+    if (labelStep === 0 && flipped) {
       setLabelStep(1);
     }
-  }, [tutorialLabels, flipped, current, labelStep]);
+  }, [labelStep, flipped]);
 
   const finishLabelTour = () => {
     setLabelStep(null);
@@ -226,6 +234,7 @@ export default function FlashcardDeck({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") handleFlip();
                 }}
+                data-tour="flashcard"
               >
                 {/* Front face */}
                 <div className="flashcard-face front">
@@ -341,14 +350,24 @@ export default function FlashcardDeck({
         </div>
       )}
 
-      {/* ---------- Onboarding tutorial: steps 13-15 (status labels) ---------- */}
+      {/* ---------- Onboarding tutorial: steps 13-16 ---------- */}
+      {labelStep === 0 && (
+        <TutorialPopover
+          targetSelector="[data-tour='flashcard']"
+          body="Click on the flashcard to flip it."
+          placement="bottom"
+          stepNumber={13}
+          totalSteps={16}
+          onSkip={finishLabelTour}
+        />
+      )}
       {labelStep === 1 && (
         <TutorialPopover
           targetSelector="[data-tour='fc-learnt']"
           body="After clicking learnt, the card is archived until all cards are learnt."
           placement="top"
-          stepNumber={13}
-          totalSteps={15}
+          stepNumber={14}
+          totalSteps={16}
           primaryLabel="Next"
           onPrimary={() => setLabelStep(2)}
           onSkip={finishLabelTour}
@@ -359,8 +378,8 @@ export default function FlashcardDeck({
           targetSelector="[data-tour='fc-skip']"
           body="Skip this vocabulary if you already know it. It won't be seen again, and another word will replace it."
           placement="top"
-          stepNumber={14}
-          totalSteps={15}
+          stepNumber={15}
+          totalSteps={16}
           primaryLabel="Next"
           onPrimary={() => setLabelStep(3)}
           onSkip={finishLabelTour}
@@ -371,8 +390,8 @@ export default function FlashcardDeck({
           targetSelector="[data-tour='fc-notlearnt']"
           body="If you got it wrong, click not learnt and it will be tested again."
           placement="top"
-          stepNumber={15}
-          totalSteps={15}
+          stepNumber={16}
+          totalSteps={16}
           primaryLabel="Finish"
           onPrimary={finishLabelTour}
           onSkip={finishLabelTour}

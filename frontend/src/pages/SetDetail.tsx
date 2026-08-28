@@ -657,7 +657,7 @@ export default function SetDetail() {
           body={STUDY_TOUR[tourStep - 10].body}
           placement="bottom"
           stepNumber={tourStep}
-          totalSteps={15}
+          totalSteps={16}
           primaryLabel={tourStep === 11 ? "Next" : undefined}
           onPrimary={
             tourStep === 11
