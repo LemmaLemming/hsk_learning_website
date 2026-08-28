@@ -207,7 +207,7 @@ export default function FlashcardDeck({
             className="flashcard-status-btn unlearned"
             onClick={() => handleSetStatus("unlearned")}
           >
-            [ Again ↺ ]
+            [ Not Learnt ✗ ]
           </button>
         </div>
       )}
