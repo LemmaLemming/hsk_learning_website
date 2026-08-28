@@ -31,6 +31,9 @@ interface Props {
   onDeckComplete: () => void; // called when all cards in deck are "learnt"
 }
 
+const keyOf = (h: HydratedVocabItem) =>
+  `${h.item.level}:${h.item.vocabId}`;
+
 export default function FlashcardDeck({
   deck,
   deckIndex,
@@ -43,26 +46,24 @@ export default function FlashcardDeck({
 }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [localDeck, setLocalDeck] = useState<HydratedVocabItem[]>([...deck]);
+  const [viewIndex, setViewIndex] = useState(0);
   const [showCongrats, setShowCongrats] = useState(false);
 
   // Sync from the parent deck ONLY when new cards appear (skip cascade pulls
   // a card forward from the next deck). Status-only changes must NOT reset the
   // stack, otherwise already-processed cards would pop back to the top.
   useEffect(() => {
-    setLocalDeck((prev) => {
-      const prevKeys = new Set(
-        prev.map((h) => `${h.item.level}:${h.item.vocabId}`)
-      );
-      const hasNewCards = deck.some(
-        (h) => !prevKeys.has(`${h.item.level}:${h.item.vocabId}`)
-      );
-      if (!hasNewCards) return prev;
-      return [...deck];
-    });
+    const prevKeys = new Set(localDeck.map(keyOf));
+    const hasNewCards = deck.some((h) => !prevKeys.has(keyOf(h)));
+    if (hasNewCards) {
+      setLocalDeck([...deck]);
+      setViewIndex(0);
+    }
     setFlipped(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck]);
 
-  const current = localDeck[0];
+  const current = localDeck[viewIndex] ?? localDeck[0] ?? undefined;
   const remaining = localDeck.length;
 
   const handleFlip = () => {
@@ -70,11 +71,26 @@ export default function FlashcardDeck({
     setFlipped((f) => !f); // toggle front <-> back
   };
 
-  const advanceCard = (updatedDeck: HydratedVocabItem[]) => {
-    // Remove the front card
-    const next = updatedDeck.slice(1);
-    const movedCard = updatedDeck[0];
+  // Browse previous/next WITHOUT changing the card's status label.
+  const goPrev = () => {
+    if (viewIndex <= 0) return;
+    setViewIndex(viewIndex - 1);
+    setFlipped(false);
+  };
 
+  const goNext = () => {
+    if (viewIndex >= localDeck.length - 1) return;
+    setViewIndex(viewIndex + 1);
+    setFlipped(false);
+  };
+
+  const advanceCard = (updatedDeck: HydratedVocabItem[]) => {
+    const idx = Math.min(viewIndex, updatedDeck.length - 1);
+    const movedCard = updatedDeck[idx];
+    if (!movedCard) return;
+
+    const next = [...updatedDeck];
+    next.splice(idx, 1);
     if (movedCard.item.status === "unlearned") {
       // Cycle to bottom
       next.push(movedCard);
@@ -83,6 +99,7 @@ export default function FlashcardDeck({
 
     setFlipped(false);
     setLocalDeck(next);
+    setViewIndex(0);
 
     const allDone =
       next.length === 0 || next.every((h) => h.item.status === "learnt");
@@ -104,7 +121,7 @@ export default function FlashcardDeck({
     }
     // Update status in local copy before advancing
     const updated: HydratedVocabItem[] = localDeck.map((h, i) =>
-      i === 0 ? { ...h, item: { ...h.item, status } } : h
+      i === viewIndex ? { ...h, item: { ...h.item, status } } : h
     );
     advanceCard(updated);
   };
@@ -113,77 +130,114 @@ export default function FlashcardDeck({
     return <p className="placeholder">No cards in this deck.</p>;
   }
 
+  const atStart = viewIndex === 0 && localDeck.length > 0;
+  const atEnd = viewIndex === localDeck.length - 1 && localDeck.length > 0;
+
   return (
     <>
       <p className="flashcard-meta">
         Day {deckIndex} &mdash; {remaining} card
         {remaining === 1 ? "" : "s"} remaining
       </p>
-      <div className="flashcard-scene">
-        <div className="flashcard-stack">
-          {/* Ghost depth cards */}
-          <div className="flashcard-ghost" aria-hidden="true" />
-          <div className="flashcard-ghost" aria-hidden="true" />
-          {/* Active card */}
-          {current && (
-            <div
-              className={`flashcard-wrapper${flipped ? " is-flipped" : ""}`}
-              onClick={handleFlip}
-              role="button"
-              aria-label={flipped ? "Card flipped; click to flip back" : "Click to reveal back"}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") handleFlip();
-              }}
-            >
-              {/* Front face */}
-              <div className="flashcard-face front">
-                <span className="flashcard-level-badge">
-                  HSK {current.item.level}
-                </span>
-                <span className="flashcard-char">
-                  {characterFor(current.entry, characterType)}
-                </span>
-                {frontFields.map((field) => {
-                  const val = displayFor(current.entry, field);
-                  if (!val) return null;
-                  return (
-                    <span key={field} className="flashcard-field">
-                      <span className="flashcard-field-label">
-                        {FIELD_LABELS[field]}:
+
+      {/* Edge-of-deck indicator */}
+      {localDeck.length > 1 && (atStart || atEnd) && (
+        <p className="flashcard-edge-hint">
+          {atStart ? "== FIRST CARD ==" : "== LAST CARD =="}
+        </p>
+      )}
+
+      <div className="flashcard-nav">
+        <button
+          type="button"
+          className="flashcard-nav-btn"
+          onClick={goPrev}
+          disabled={viewIndex <= 0}
+          aria-label="Previous card"
+          title="Previous card"
+        >
+          [ &lt; ]
+        </button>
+
+        <div className="flashcard-scene">
+          <div className="flashcard-stack">
+            {/* Ghost depth cards */}
+            <div className="flashcard-ghost" aria-hidden="true" />
+            <div className="flashcard-ghost" aria-hidden="true" />
+            {/* Active card */}
+            {current && (
+              <div
+                className={`flashcard-wrapper${flipped ? " is-flipped" : ""}`}
+                onClick={handleFlip}
+                role="button"
+                aria-label={
+                  flipped ? "Card flipped; click to flip back" : "Click to reveal back"
+                }
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") handleFlip();
+                }}
+              >
+                {/* Front face */}
+                <div className="flashcard-face front">
+                  <span className="flashcard-level-badge">
+                    HSK {current.item.level}
+                  </span>
+                  <span className="flashcard-char">
+                    {characterFor(current.entry, characterType)}
+                  </span>
+                  {frontFields.map((field) => {
+                    const val = displayFor(current.entry, field);
+                    if (!val) return null;
+                    return (
+                      <span key={field} className="flashcard-field">
+                        <span className="flashcard-field-label">
+                          {FIELD_LABELS[field]}:
+                        </span>
+                        {val}
                       </span>
-                      {val}
-                    </span>
-                  );
-                })}
-                {!flipped && (
-                  <span className="flashcard-hint">[ click to reveal ]</span>
-                )}
-              </div>
-              {/* Back face */}
-              <div className="flashcard-face back">
-                <span className="flashcard-level-badge">
-                  HSK {current.item.level}
-                </span>
-                <span className="flashcard-char">
-                  {characterFor(current.entry, characterType)}
-                </span>
-                {backFields.map((field) => {
-                  const val = displayFor(current.entry, field);
-                  if (!val) return null;
-                  return (
-                    <span key={field} className="flashcard-field">
-                      <span className="flashcard-field-label">
-                        {FIELD_LABELS[field]}:
+                    );
+                  })}
+                  {!flipped && (
+                    <span className="flashcard-hint">[ click to reveal ]</span>
+                  )}
+                </div>
+                {/* Back face */}
+                <div className="flashcard-face back">
+                  <span className="flashcard-level-badge">
+                    HSK {current.item.level}
+                  </span>
+                  <span className="flashcard-char">
+                    {characterFor(current.entry, characterType)}
+                  </span>
+                  {backFields.map((field) => {
+                    const val = displayFor(current.entry, field);
+                    if (!val) return null;
+                    return (
+                      <span key={field} className="flashcard-field">
+                        <span className="flashcard-field-label">
+                          {FIELD_LABELS[field]}:
+                        </span>
+                        {val}
                       </span>
-                      {val}
-                    </span>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
+        <button
+          type="button"
+          className="flashcard-nav-btn"
+          onClick={goNext}
+          disabled={viewIndex >= localDeck.length - 1}
+          aria-label="Next card"
+          title="Next card"
+        >
+          [ &gt; ]
+        </button>
       </div>
 
       {/* Status buttons — only shown after flip */}
