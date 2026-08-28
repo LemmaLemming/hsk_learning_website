@@ -107,6 +107,7 @@ export default function VocabCard({
             onRemove(hydrated.item.level, hydrated.item.vocabId);
           }}
         >
+          [
           <svg
             className="trash-icon"
             viewBox="0 0 16 16"
@@ -123,6 +124,7 @@ export default function VocabCard({
               strokeWidth="1.5"
             />
           </svg>
+          ]
         </a>
       </div>
     </div>
