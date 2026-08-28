@@ -13,6 +13,7 @@
     "vite": "^8.2.2"
   },
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "firebase": "^12.18.0",

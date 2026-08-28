@@ -10,6 +10,7 @@ import { db } from "../firebase/firebaseConfig";
 import {
   DEFAULT_VISIBLE_FIELDS,
   type CharacterType,
+  type Occupation,
   type UserPreferences,
   type VisibleField,
 } from "../types";
@@ -23,6 +24,9 @@ export function userDocRef(uid: string) {
 export interface UserPrefUpdate {
   characterType?: CharacterType;
   visibleFields?: VisibleField[];
+  onboardingComplete?: boolean;
+  occupation?: Occupation | null;
+  targetLevels?: number[];
 }
 
 export async function getOrCreateUserDoc(
@@ -31,12 +35,29 @@ export async function getOrCreateUserDoc(
   const ref = userDocRef(user.uid);
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    return snap.data() as UserPreferences;
+    const data = snap.data() as UserPreferences;
+    // If the doc predates the onboarding fields (e.g. created before the
+    // rules update), merge in the defaults so the Firestore rules still
+    // accept future writes to it.
+    if (data.onboardingComplete == null || data.occupation === undefined || data.targetLevels === undefined) {
+      const migrated: UserPreferences = {
+        ...data,
+        onboardingComplete: data.onboardingComplete ?? false,
+        occupation: data.occupation ?? null,
+        targetLevels: data.targetLevels ?? [],
+      };
+      await setDoc(ref, migrated, { merge: true });
+      return migrated;
+    }
+    return data;
   }
   const defaults: UserPreferences = {
     displayName: user.displayName ?? user.email ?? "User",
     characterType: "simplified",
     visibleFields: DEFAULT_VISIBLE_FIELDS,
+    onboardingComplete: false,
+    occupation: null,
+    targetLevels: [],
     createdAt: now(),
     updatedAt: now(),
   };

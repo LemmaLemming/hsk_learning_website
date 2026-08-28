@@ -1,10 +1,29 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { getUserSets, deleteSet, type SetWithId } from "../services/setService";
+import {
+  getUserSets,
+  getRecentSets,
+  deleteSet,
+  type SetWithId,
+} from "../services/setService";
+import {
+  getOrCreateUserDoc,
+  updateUserPreferences,
+} from "../services/userService";
+import GlobalSettings from "../components/GlobalSettings";
+import type {
+  CharacterType,
+  UserPreferences,
+  VisibleField,
+} from "../types";
+
+const ASCII_HEADER = `╔══════════════════════════════════╗
+║   HSK VOCAB TRAINER DASHBOARD   ║
+╚══════════════════════════════════╝`;
 
 function formatDate(value: unknown): string {
-  if (!value) return "";
+  if (!value) return "never";
   if (typeof value === "object" && "toDate" in (value as object)) {
     return (value as { toDate: () => Date }).toDate().toLocaleDateString();
   }
@@ -23,12 +42,24 @@ export default function SetList() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [sets, setSets] = useState<SetWithId[] | null>(null);
+  const [recent, setRecent] = useState<SetWithId[]>([]);
+  const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const [prefsError, setPrefsError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
+
+    getOrCreateUserDoc(user)
+      .then((p) => {
+        if (active) setPrefs(p);
+      })
+      .catch(() => {
+        if (active) setPrefsError(true);
+      });
+
     getUserSets(user.uid)
       .then((s) => {
         if (active) setSets(s);
@@ -36,80 +67,138 @@ export default function SetList() {
       .catch((e) => {
         if (active) setError((e as Error).message);
       });
+
+    getRecentSets(user.uid, 2)
+      .then((s) => {
+        if (active) setRecent(s);
+      })
+      .catch(() => {
+        /* recent sets are decorative; main list has the source of truth */
+      });
+
     return () => {
       active = false;
     };
   }, [user]);
 
-  const confirmDelete = async (id: string) => {
+  // Phase 2 guard: first-time users must complete onboarding first.
+  if (prefs && prefs.onboardingComplete === false) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  const handleSaveSettings = async (p: {
+    characterType: CharacterType;
+    visibleFields: VisibleField[];
+  }) => {
     if (!user) return;
+    await updateUserPreferences(user.uid, p);
+    setPrefs((prev) => (prev ? { ...prev, ...p } : prev));
+  };
+
+  const confirmDelete = async (set: SetWithId) => {
+    if (!user) return;
+    const ok = window.confirm(
+      `Delete set "${set.name}"?\n\nThis action cannot be undone.`
+    );
+    if (!ok) return;
     try {
-      await deleteSet(user.uid, id);
-      setSets((prev) => prev?.filter((s) => s.id !== id) ?? prev);
-      setDeletingId(null);
+      await deleteSet(user.uid, set.id);
+      setSets((prev) => prev?.filter((s) => s.id !== set.id) ?? prev);
+      setRecent((prev) => prev.filter((s) => s.id !== set.id));
     } catch (e) {
       setError((e as Error).message);
     }
   };
 
+  const allCounts = sets
+    ? {
+        learnt: sets.reduce((n, s) => n + statusCounts(s).learnt, 0),
+        skipped: sets.reduce((n, s) => n + statusCounts(s).skipped, 0),
+      }
+    : null;
+
   return (
     <div className="page">
       <header className="page-header">
-        <h1>My Sets</h1>
+        <div>
+          <pre className="ascii-header">{ASCII_HEADER}</pre>
+          <div className="user-info">
+            Welcome, <b>{prefs?.displayName ?? user?.displayName ?? ""}</b>
+            {allCounts && (
+              <span>
+                | {allCounts.learnt} learnt · {allCounts.skipped} skipped
+                across {sets?.length ?? 0} set{sets?.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+        </div>
         <div className="user-info">
-          <Link to="/settings" className="btn">
-            Settings
-          </Link>
-          <button className="btn" onClick={signOut}>
-            Sign out
+          <button
+            className="retro-btn"
+            onClick={() => setShowSettings(true)}
+          >
+            [ ⚙ Settings ]
+          </button>
+          <button className="retro-btn" onClick={signOut}>
+            [ Sign out ]
           </button>
         </div>
       </header>
 
-      {error && <p className="error">{error}</p>}
-
-      <div className="set-list-actions">
-        <button
-          className="btn primary"
-          onClick={() => navigate("/sets/new")}
-        >
-          + Create New Set
-        </button>
+      <div className="marquee">
+        <span>
+          {" "}
+          &gt;&gt;&gt; Welcome to the HSK Vocab Trainer! Create a set, then
+          click "Study" to start drilling. 加油！{" "}
+        </span>
       </div>
 
-      {sets === null ? (
-        <p className="loading">Loading sets…</p>
-      ) : sets.length === 0 ? (
-        <p className="placeholder">
-          You don't have any sets yet. Create your first one!
+      {error && <p className="error">{error}</p>}
+      {prefsError && !prefs && (
+        <p className="error">
+          Could not load your preferences. Check your connection and refresh.
         </p>
+      )}
+
+      {/* ---------- Pick Up Where You Left Off ---------- */}
+      <h2 className="section-title">Pick Up Where You Left Off</h2>
+      {recent.length === 0 ? (
+        <p className="placeholder">No recent sets. Create one below!</p>
       ) : (
-        <div className="set-grid">
-          {sets.map((set) => {
+        <div className="recent-panels">
+          {recent.map((set) => {
             const counts = statusCounts(set);
             const total = set.items?.length ?? 0;
+            const pct = total > 0 ? Math.round((counts.learnt / total) * 100) : 0;
             return (
-              <div key={set.id} className="set-card">
-                <button
-                  className="set-card-main"
-                  onClick={() => navigate(`/sets/${set.id}`)}
-                >
-                  <h2>{set.name}</h2>
-                  <p className="set-meta">
-                    {total} items · created {formatDate(set.createdAt)}
-                  </p>
-                  <p className="set-status">
-                    All {total} · Unlearned {counts.unlearned} · Learnt{" "}
-                    {counts.learnt} · Skipped {counts.skipped}
-                  </p>
-                </button>
-                <div className="set-card-actions">
-                  <button
-                    className="btn danger"
-                    onClick={() => setDeletingId(set.id)}
-                  >
-                    Delete
-                  </button>
+              <div key={set.id} className="recent-panel">
+                <h3>{set.name}</h3>
+                <table className="retro-table">
+                  <tbody>
+                    <tr className="no-hover">
+                      <td>Items</td>
+                      <td>{total}</td>
+                    </tr>
+                    <tr className="no-hover">
+                      <td>Learnt</td>
+                      <td>
+                        {counts.learnt} / {total} ({pct}%)
+                      </td>
+                    </tr>
+                    <tr className="no-hover">
+                      <td>Last accessed</td>
+                      <td>{formatDate(set.lastAccessedAt)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="progress-track">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="set-actions-row">
+                  <Link to={`/sets/${set.id}`}>[ Study this set &gt;&gt; ]</Link>
                 </div>
               </div>
             );
@@ -117,25 +206,87 @@ export default function SetList() {
         </div>
       )}
 
-      {deletingId && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Delete this set?</h3>
-            <p>This action cannot be undone.</p>
-            <div className="modal-actions">
-              <button className="btn" onClick={() => setDeletingId(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn danger"
-                onClick={() => confirmDelete(deletingId)}
-              >
-                Delete
+      {/* ---------- Your Sets ---------- */}
+      <h2 className="section-title">Your Sets</h2>
+      <div className="create-btn-area">
+        <button className="retro-btn primary" onClick={() => navigate("/sets/new")}>
+          [ + Create New Set ]
+        </button>
+      </div>
+
+      {sets === null ? (
+        <p className="loading">Loading sets...</p>
+      ) : sets.length === 0 ? (
+        <p className="placeholder">You haven't created any sets yet.</p>
+      ) : (
+        <table className="retro-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Items</th>
+              <th>Learnt</th>
+              <th>Skipped</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sets.map((set, i) => {
+              const counts = statusCounts(set);
+              const total = set.items?.length ?? 0;
+              return (
+                <tr key={set.id} onClick={() => navigate(`/sets/${set.id}`)}>
+                  <td>{i + 1}</td>
+                  <td>{set.name}</td>
+                  <td>{total}</td>
+                  <td>{counts.learnt}</td>
+                  <td>{counts.skipped}</td>
+                  <td>{formatDate(set.createdAt)}</td>
+                  <td
+                    className="actions-cell"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <a
+                      className="delete-link"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void confirmDelete(set);
+                      }}
+                    >
+                      [Delete]
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {/* ---------- Settings modal ---------- */}
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>⚙ Settings</h3>
+              <button className="retro-btn" onClick={() => setShowSettings(false)}>
+                [ Close ]
               </button>
             </div>
+            {prefs ? (
+              <GlobalSettings prefs={prefs} onSave={handleSaveSettings} />
+            ) : (
+              <p className="loading">Loading preferences...</p>
+            )}
           </div>
         </div>
       )}
+
+      <footer className="visitor-footer">
+        Page hits: 9999 | Last updated: {new Date().toLocaleDateString()}
+      </footer>
     </div>
   );
 }

@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  type DropResult,
+} from "@hello-pangea/dnd";
 import { useAuth } from "../contexts/AuthContext";
-import { getSet, updateSet } from "../services/setService";
+import { getSet, updateSet, touchSet } from "../services/setService";
 import { getOrCreateUserDoc } from "../services/userService";
 import { getVocabById } from "../services/vocabLoader";
 import { useVocabData } from "../hooks/useVocabData";
@@ -17,10 +23,11 @@ import type {
 
 type StatusFilter = VocabStatus | "all";
 
+const keyOf = (item: VocabItem) => `${item.level}:${item.vocabId}`;
+
 export default function SetDetail() {
   const { setId } = useParams();
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [name, setName] = useState("");
   const [items, setItems] = useState<VocabItem[]>([]);
@@ -33,6 +40,7 @@ export default function SetDetail() {
   const [showAdd, setShowAdd] = useState(false);
   const [subsetInput, setSubsetInput] = useState("");
 
+  // Load the set document
   useEffect(() => {
     if (!user || !setId) return;
     let active = true;
@@ -52,6 +60,14 @@ export default function SetDetail() {
     return () => {
       active = false;
     };
+  }, [user, setId]);
+
+  // Track "last accessed" (prerequisite 1E) whenever the set is opened.
+  useEffect(() => {
+    if (!user || !setId) return;
+    touchSet(user.uid, setId).catch(() => {
+      /* non-critical; ignore write failures */
+    });
   }, [user, setId]);
 
   useEffect(() => {
@@ -121,6 +137,38 @@ export default function SetDetail() {
     setItems((prev) => [...prev, ...newItems]);
   };
 
+  // --- drag & drop (within a deck only; never between decks) ---------------
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    if (result.source.droppableId !== result.destination.droppableId) return;
+    const deckIdx = Number(result.source.droppableId.replace("deck-", ""));
+    const deck = subsets[deckIdx];
+    if (!deck) return;
+
+    const reordered = [...deck];
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+
+    const newOrder = reordered.map((h) => keyOf(h.item));
+    const byKey = new Map(reordered.map((h) => [keyOf(h.item), h.item]));
+
+    setItems((prev) => {
+      const deckKeys = new Set(newOrder);
+      const out: VocabItem[] = [];
+      let cursor = 0;
+      for (const item of prev) {
+        const k = keyOf(item);
+        if (deckKeys.has(k)) {
+          out.push(byKey.get(newOrder[cursor])!);
+          cursor++;
+        } else {
+          out.push(item);
+        }
+      }
+      return out;
+    });
+  };
+
   // --- autosave ------------------------------------------------------------
   const saveKey = JSON.stringify({ name, items, shuffled, subsetSize });
   const save = async () => {
@@ -137,7 +185,9 @@ export default function SetDetail() {
   }, [items]);
 
   const filteredHydrated =
-    filter === "all" ? hydrated : hydrated.filter((h) => h.item.status === filter);
+    filter === "all"
+      ? hydrated
+      : hydrated.filter((h) => h.item.status === filter);
 
   const subsets = useMemo(() => {
     if (!subsetSize || subsetSize <= 0) return [filteredHydrated];
@@ -150,21 +200,34 @@ export default function SetDetail() {
 
   const total = items.length;
 
+  const saveText =
+    autosave.status === "saving"
+      ? "Saving..."
+      : autosave.status === "saved"
+        ? "Saved."
+        : autosave.status === "error"
+          ? "ERROR: save failed"
+          : "";
+
   return (
     <div className="page">
       <header className="page-header">
         <div>
+          <Link className="back-link" to="/dashboard">
+            &lt;&lt; Back to Dashboard
+          </Link>
           <h1>{name}</h1>
-          <span className="save-indicator">
-            {autosave.status === "saving" && "Saving…"}
-            {autosave.status === "saved" && "Saved ✓"}
-            {autosave.status === "error" && "Save failed ✗"}
+          <span
+            className={`save-indicator ${autosave.status}`}
+            role="status"
+            aria-live="polite"
+          >
+            {saveText}
           </span>
-          {autosave.error && <span className="error"> {autosave.error}</span>}
+          {autosave.error && (
+            <span className="error-pre"> *** {autosave.error} ***</span>
+          )}
         </div>
-        <button className="btn" onClick={() => navigate("/dashboard")}>
-          Back
-        </button>
       </header>
 
       {error && <p className="error">{error}</p>}
@@ -172,88 +235,139 @@ export default function SetDetail() {
       {loaded && (
         <>
           <div className="study-controls">
-            <button className="btn" onClick={handleShuffle} disabled={total < 2}>
-              Shuffle
+            <button
+              className="retro-btn"
+              onClick={handleShuffle}
+              disabled={total < 2}
+            >
+              [ Shuffle ]
             </button>
             <div className="subset-control">
+              <label htmlFor="subset-size">Split into daily decks of</label>
               <input
                 id="subset-size"
                 type="number"
                 min={1}
-                placeholder="subset size"
+                placeholder="10"
                 value={subsetInput}
                 onChange={(e) => setSubsetInput(e.target.value)}
               />
-              <button className="btn" onClick={applySubset}>
-                Divide
+              <button className="retro-btn" onClick={applySubset}>
+                [ Go ]
               </button>
             </div>
-            <button className="btn primary" onClick={() => setShowAdd(true)}>
-              + Add vocab
+            <button className="retro-btn primary" onClick={() => setShowAdd(true)}>
+              [ + Add vocab ]
             </button>
           </div>
 
           <div className="filter-bar">
-            <button
-              className={`filter-btn ${filter === "all" ? "active" : ""}`}
+            <span>Show: </span>
+            <a
+              className={`filter-link ${filter === "all" ? "active" : ""}`}
               onClick={() => setFilter("all")}
             >
-              All ({total})
-            </button>
-            <button
-              className={`filter-btn unlearned ${
-                filter === "unlearned" ? "active" : ""
-              }`}
+              (ALL {total})
+            </a>
+            <a
+              className={`filter-link ${filter === "unlearned" ? "active" : ""}`}
               onClick={() => setFilter("unlearned")}
             >
-              Unlearned ({counts.unlearned})
-            </button>
-            <button
-              className={`filter-btn learnt ${filter === "learnt" ? "active" : ""}`}
+              (Unlearned {counts.unlearned})
+            </a>
+            <a
+              className={`filter-link ${filter === "learnt" ? "active" : ""}`}
               onClick={() => setFilter("learnt")}
             >
-              Learnt ({counts.learnt})
-            </button>
-            <button
-              className={`filter-btn skipped ${filter === "skipped" ? "active" : ""}`}
+              (Learnt {counts.learnt})
+            </a>
+            <a
+              className={`filter-link ${filter === "skipped" ? "active" : ""}`}
               onClick={() => setFilter("skipped")}
             >
-              Skipped ({counts.skipped})
-            </button>
+              (Skipped {counts.skipped})
+            </a>
           </div>
 
-          {vocabLoading && <p className="loading">Loading vocab…</p>}
+          {vocabLoading && <p className="loading">Loading vocab...</p>}
           {!vocabLoading && subsets.length === 0 && (
             <p className="placeholder">No items to show.</p>
           )}
-
-          {subsets.map((subset, idx) => (
-            <div key={idx} className="subset">
-              {subsets.length > 1 && (
-                <h3>
-                  Subset {idx + 1} ({subset.length})
-                </h3>
-              )}
-              <div className="vocab-card-list">
-                {subset.map((h) => (
-                  <VocabCard
-                    key={`${h.item.level}:${h.item.vocabId}`}
-                    hydrated={h}
-                    characterType={prefs?.characterType ?? "simplified"}
-                    visibleFields={prefs?.visibleFields ?? ["pinyin", "meaning"]}
-                    onCycleStatus={cycleStatus}
-                    onRemove={removeItem}
-                  />
+          {!vocabLoading && subsets.length > 0 && (
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="daily-decks">
+                {subsets.map((subset, idx) => (
+                  <fieldset key={idx} className="daily-deck">
+                    <legend className="deck-legend">
+                      {subsets.length > 1
+                        ? `Day ${idx + 1} (${subset.length} word${
+                            subset.length === 1 ? "" : "s"
+                          })`
+                        : `All words (${subset.length})`}
+                    </legend>
+                    <Droppable droppableId={`deck-${idx}`}>
+                      {(provided) => (
+                        <div
+                          className="vocab-card-list"
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                        >
+                          {subset.map((h, index) => (
+                            <Draggable
+                              key={keyOf(h.item)}
+                              draggableId={keyOf(h.item)}
+                              index={index}
+                            >
+                              {(dragProvided, snapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className={
+                                    snapshot.isDragging ? "dragging" : ""
+                                  }
+                                >
+                                  <div className="vocab-card-row">
+                                    <span
+                                      className="drag-handle"
+                                      {...dragProvided.dragHandleProps}
+                                      title="Drag to reorder"
+                                    >
+                                      ⠿
+                                    </span>
+                                    <VocabCard
+                                      hydrated={h}
+                                      characterType={
+                                        prefs?.characterType ?? "simplified"
+                                      }
+                                      visibleFields={
+                                        prefs?.visibleFields ?? [
+                                          "pinyin",
+                                          "meaning",
+                                        ]
+                                      }
+                                      onCycleStatus={cycleStatus}
+                                      onRemove={removeItem}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </fieldset>
                 ))}
               </div>
-            </div>
-          ))}
+            </DragDropContext>
+          )}
         </>
       )}
 
       {showAdd && (
         <AddVocabModal
-          existingKeys={new Set(items.map((i) => `${i.level}:${i.vocabId}`))}
+          existingKeys={new Set(items.map(keyOf))}
           onAdd={addItems}
           onClose={() => setShowAdd(false)}
         />

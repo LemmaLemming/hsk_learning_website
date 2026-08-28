@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SetList from "./pages/SetList";
-import Settings from "./pages/Settings";
+import Onboarding from "./pages/Onboarding";
 import CreateSet from "./pages/CreateSet";
 import SetDetail from "./pages/SetDetail";
 
@@ -19,10 +19,10 @@ export default function App() {
         }
       />
       <Route
-        path="/settings"
+        path="/onboarding"
         element={
           <ProtectedRoute>
-            <Settings />
+            <Onboarding />
           </ProtectedRoute>
         }
       />

@@ -42,10 +42,29 @@ export type VisibleField = (typeof ALL_VISIBLE_FIELDS)[number];
 
 export const DEFAULT_VISIBLE_FIELDS: VisibleField[] = ["pinyin", "meaning"];
 
+export type Occupation =
+  | "student"
+  | "working"
+  | "professional"
+  | "teacher"
+  | "other";
+
+export const OCCUPATIONS: Occupation[] = [
+  "student",
+  "working",
+  "professional",
+  "teacher",
+  "other",
+];
+
 export interface UserPreferences {
   displayName: string;
   characterType: CharacterType;
   visibleFields: VisibleField[];
+  // New: onboarding fields
+  onboardingComplete: boolean; // default: false
+  occupation: Occupation | null; // default: null
+  targetLevels: number[]; // default: [] (HSK levels 1-7)
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -65,6 +84,7 @@ export interface VocabSetDoc {
   updatedAt: Timestamp;
   shuffled: boolean;
   subsetSize: number | null;
+  lastAccessedAt: Timestamp | null; // set when user opens the set
   items: VocabItem[];
 }
 

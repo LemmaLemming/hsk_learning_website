@@ -8,6 +8,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  limit as limitTo,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
@@ -30,6 +31,7 @@ export async function createSet(
     updatedAt: serverTimestamp(),
     shuffled: false,
     subsetSize: null,
+    lastAccessedAt: null,
     items,
   });
   return ref.id;
@@ -37,6 +39,22 @@ export async function createSet(
 
 export async function getUserSets(uid: string): Promise<SetWithId[]> {
   const q = query(setsRef(uid), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map(
+    (d) => ({ id: d.id, ...d.data() }) as SetWithId
+  );
+}
+
+/** Most recently accessed sets, newest first (never-accessed sets sort last). */
+export async function getRecentSets(
+  uid: string,
+  limitCount = 2
+): Promise<SetWithId[]> {
+  const q = query(
+    setsRef(uid),
+    orderBy("lastAccessedAt", "desc"),
+    limitTo(limitCount)
+  );
   const snap = await getDocs(q);
   return snap.docs.map(
     (d) => ({ id: d.id, ...d.data() }) as SetWithId
@@ -63,4 +81,11 @@ export async function updateSet(
 
 export async function deleteSet(uid: string, setId: string): Promise<void> {
   await deleteDoc(setRef(uid, setId));
+}
+
+/** Updates the lastAccessedAt timestamp when a user opens a set. */
+export async function touchSet(uid: string, setId: string): Promise<void> {
+  await updateDoc(setRef(uid, setId), {
+    lastAccessedAt: serverTimestamp(),
+  });
 }

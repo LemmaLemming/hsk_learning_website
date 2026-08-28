@@ -1,12 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useVocabData } from "../hooks/useVocabData";
+import { loadLevel } from "../services/vocabLoader";
 import { createSet } from "../services/setService";
 import type { VocabEntry, VocabItem } from "../types";
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7];
 const STEPS = ["Name", "Levels", "Review", "Create"];
+
+// Word counts from the static vocab JSON (frontend/public/data/{n}.min.json)
+const LEVEL_WORD_COUNTS: Record<number, number> = {
+  1: 294,
+  2: 197,
+  3: 487,
+  4: 972,
+  5: 1547,
+  6: 1684,
+  7: 4876,
+};
 
 interface EntryRef {
   level: number;
@@ -26,6 +38,14 @@ export default function CreateSet() {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Expanded level vocab browsing (Step 2)
+  const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
+  const [expandedEntries, setExpandedEntries] = useState<VocabEntry[] | null>(
+    null
+  );
+  const [expandedLoading, setExpandedLoading] = useState(false);
+  const [expandQuery, setExpandQuery] = useState("");
 
   const { data, loading, error: loadError } = useVocabData(selectedLevels);
 
@@ -55,8 +75,39 @@ export default function CreateSet() {
     setSelectedLevels((prev) =>
       prev.includes(lvl) ? prev.filter((l) => l !== lvl) : [...prev, lvl]
     );
-    if (step < 2) setStep(step);
   };
+
+  // Lazy-load vocab for the expanded level (vocabLoader caches it).
+  const expandLevel = async (lvl: number) => {
+    if (expandedLevel === lvl) {
+      setExpandedLevel(null);
+      setExpandedEntries(null);
+      setExpandQuery("");
+      return;
+    }
+    setExpandedLevel(lvl);
+    setExpandedLoading(true);
+    setExpandQuery("");
+    try {
+      const entries = await loadLevel(lvl);
+      setExpandedEntries(entries);
+    } catch (e) {
+      setError((e as Error).message);
+      setExpandedEntries([]);
+    } finally {
+      setExpandedLoading(false);
+    }
+  };
+
+  const filteredExpanded = useMemo(() => {
+    if (!expandedEntries || !expandQuery.trim()) return expandedEntries;
+    const q = expandQuery.trim().toLowerCase();
+    return expandedEntries.filter((entry) => {
+      const s = entry.s.toLowerCase();
+      const pinyin = entry.f?.[0]?.i?.y?.toLowerCase() ?? "";
+      return s.includes(q) || pinyin.includes(q);
+    });
+  }, [expandedEntries, expandQuery]);
 
   const filteredEntries = useMemo(() => {
     if (!query.trim()) return allEntries;
@@ -121,6 +172,12 @@ export default function CreateSet() {
     }
   };
 
+  const selectedLevelCount = useMemo(() => {
+    const lvls = new Set<number>();
+    selectedKeys.forEach((key) => lvls.add(Number(key.split(":")[0])));
+    return lvls.size;
+  }, [selectedKeys]);
+
   const canNext =
     step !== 2
       ? step === 0
@@ -128,133 +185,295 @@ export default function CreateSet() {
         : selectedLevels.length > 0
       : selectedKeys.size > 0;
 
+  const stepTitles = [
+    "Step 1 of 4: Name Your Set",
+    "Step 2 of 4: Select HSK Levels",
+    "Step 3 of 4: Review & Select",
+    "Step 4 of 4: Create",
+  ];
+
   return (
     <div className="page">
       <header className="page-header">
-        <h1>Create a Set</h1>
-        <button className="btn" onClick={() => navigate("/dashboard")}>
-          Back
+        <div>
+          <h1>Create a New Set</h1>
+          <span className="step-indicator">{stepTitles[step]}</span>
+        </div>
+        <button className="retro-btn" onClick={() => navigate("/dashboard")}>
+          [ &lt;&lt; Back to Dashboard ]
         </button>
       </header>
-
-      <ol className="stepper">
-        {STEPS.map((label, i) => (
-          <li key={label} className={i <= step ? "active" : ""}>
-            {label}
-          </li>
-        ))}
-      </ol>
 
       {error && <p className="error">{error}</p>}
       {loadError && <p className="error">{loadError}</p>}
 
       {step === 0 && (
-        <div className="step">
-          <label htmlFor="set-name">Set name</label>
+        <fieldset>
+          <legend>Set Name</legend>
+          <label htmlFor="set-name">Give your set a name:</label>
+          <br />
           <input
             id="set-name"
+            className="retro-input"
             type="text"
             placeholder="e.g. HSK 1+2 mix"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-        </div>
+        </fieldset>
       )}
 
       {step === 1 && (
-        <div className="step">
-          <label>Select HSK levels</label>
-          <div className="level-grid">
-            {LEVELS.map((lvl) => (
-              <label key={lvl} className="level-chip">
-                <input
-                  type="checkbox"
-                  checked={selectedLevels.includes(lvl)}
-                  onChange={() => toggleLevel(lvl)}
-                />
-                <span>HSK {lvl}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+        <fieldset>
+          <legend>Select HSK Levels</legend>
+          <p>
+            Tick the levels to include, then click a level name to browse its
+            words and fine-tune your selection.
+          </p>
+          <table className="retro-table level-table">
+            <thead>
+              <tr>
+                <th>Incl.</th>
+                <th>Level</th>
+                <th>Words</th>
+                <th>Browse</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LEVELS.map((lvl) => (
+                <FragmentRow key={lvl}>
+                  <tr className={expandedLevel === lvl ? "selected-row" : ""}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedLevels.includes(lvl)}
+                        onChange={() => toggleLevel(lvl)}
+                      />
+                    </td>
+                    <td className="level-name-cell">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void expandLevel(lvl);
+                        }}
+                      >
+                        HSK {lvl}
+                      </a>
+                    </td>
+                    <td>{LEVEL_WORD_COUNTS[lvl]} words</td>
+                    <td className="level-expand-link">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void expandLevel(lvl);
+                        }}
+                      >
+                        {expandedLevel === lvl ? "[close]" : "[browse ↕]"}
+                      </a>
+                    </td>
+                  </tr>
+                  {expandedLevel === lvl && (
+                    <tr className="no-hover">
+                      <td colSpan={4} className="level-expanded">
+                        {expandedLoading ? (
+                          <p className="loading">Loading HSK {lvl} vocab...</p>
+                        ) : (
+                          <>
+                            <input
+                              className="retro-input search-input"
+                              type="search"
+                              placeholder={`Search HSK ${lvl} by character or pinyin...`}
+                              value={expandQuery}
+                              onChange={(e) => setExpandQuery(e.target.value)}
+                            />
+                            <ul className="vocab-list">
+                              {(filteredExpanded ?? []).map((entry) => {
+                                const key = keyOf(lvl, entry.id);
+                                const checked = selectedKeys.has(key);
+                                return (
+                                  <li key={key}>
+                                    <label className="vocab-row">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => toggleKey(key)}
+                                      />
+                                      <span className="vocab-level">
+                                        HSK {lvl}
+                                      </span>
+                                      <span className="vocab-char">
+                                        {entry.s}
+                                      </span>
+                                      <span className="vocab-pinyin">
+                                        {entry.f?.[0]?.i?.y ?? ""}
+                                      </span>
+                                      <span className="vocab-meaning">
+                                        {entry.f?.[0]?.m?.[0] ?? ""}
+                                      </span>
+                                    </label>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </FragmentRow>
+              ))}
+            </tbody>
+          </table>
+          <p className="selection-count">
+            {selectedLevels.length} level
+            {selectedLevels.length === 1 ? "" : "s"} selected ·{" "}
+            {selectedKeys.size} words
+          </p>
+        </fieldset>
       )}
 
       {step === 2 && (
-        <div className="step">
-          <div className="review-toolbar">
-            <input
-              id="vocab-search"
-              type="text"
-              placeholder="Search simplified or pinyin…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <button className="btn" onClick={selectAllFiltered}>
-              Select all
-            </button>
-            <button className="btn" onClick={clearFiltered}>
-              Clear
-            </button>
+        <fieldset>
+          <legend>Review &amp; Select</legend>
+          <p className="selection-count">
+            Selected: {selectedKeys.size} word
+            {selectedKeys.size === 1 ? "" : "s"} from {selectedLevelCount}{" "}
+            level{selectedLevelCount === 1 ? "" : "s"}
+          </p>
+          <div className="select-links">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                selectAllFiltered();
+              }}
+            >
+              [ Select All ]
+            </a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                clearFiltered();
+              }}
+            >
+              [ Clear All ]
+            </a>
           </div>
+          <input
+            id="vocab-search"
+            className="retro-input"
+            type="search"
+            placeholder="Search simplified or pinyin..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
           {loading ? (
-            <p className="loading">Loading vocab…</p>
+            <p className="loading">Loading vocab...</p>
           ) : (
-            <p className="selection-count">
-              {selectedKeys.size} / {allEntries.length} selected
-            </p>
+            <div className="review-scroll">
+              <table className="retro-table review-table">
+                <thead>
+                  <tr>
+                    <th>☐</th>
+                    <th>#</th>
+                    <th>Character</th>
+                    <th>Pinyin</th>
+                    <th>Meaning</th>
+                    <th>Level</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEntries.map(({ level, entry }, i) => {
+                    const key = keyOf(level, entry.id);
+                    const checked = selectedKeys.has(key);
+                    return (
+                      <tr
+                        key={key}
+                        className="no-hover"
+                        onClick={() => toggleKey(key)}
+                      >
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleKey(key)}
+                          />
+                        </td>
+                        <td>{i + 1}</td>
+                        <td className="vocab-char">{entry.s}</td>
+                        <td className="vocab-pinyin">
+                          {entry.f?.[0]?.i?.y ?? ""}
+                        </td>
+                        <td className="vocab-meaning">
+                          {entry.f?.[0]?.m?.[0] ?? ""}
+                        </td>
+                        <td className="vocab-level">HSK {level}</td>
+                      </tr>
+                    );
+                  })}
+                  {filteredEntries.length === 0 && (
+                    <tr className="no-hover">
+                      <td colSpan={6} className="placeholder">
+                        No matching words.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
-          <ul className="vocab-list">
-            {filteredEntries.map(({ level, entry }) => {
-              const key = keyOf(level, entry.id);
-              const checked = selectedKeys.has(key);
-              return (
-                <li key={key}>
-                  <label className="vocab-row">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleKey(key)}
-                    />
-                    <span className="vocab-level">HSK {level}</span>
-                    <span className="vocab-char">{entry.s}</span>
-                    <span className="vocab-pinyin">
-                      {entry.f?.[0]?.i?.y ?? ""}
-                    </span>
-                    <span className="vocab-meaning">
-                      {entry.f?.[0]?.m?.[0] ?? ""}
-                    </span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        </fieldset>
+      )}
+
+      {step === 3 && (
+        <fieldset>
+          <legend>Ready to Create</legend>
+          <p>
+            Set name: <b>{name.trim() || "Untitled set"}</b>
+          </p>
+          <p>
+            {selectedKeys.size} word{selectedKeys.size === 1 ? "" : "s"} from{" "}
+            {selectedLevelCount} level{selectedLevelCount === 1 ? "" : "s"}
+          </p>
+          <p className="placeholder">
+            Everything will be saved to your account. Click Create Set to
+            start studying!
+          </p>
+        </fieldset>
       )}
 
       <div className="step-actions">
         {step > 0 && (
-          <button className="btn" onClick={() => setStep(step - 1)}>
-            Back
+          <button className="retro-btn" onClick={() => setStep(step - 1)}>
+            &lt;&lt; Back
           </button>
         )}
         {step < STEPS.length - 1 ? (
           <button
-            className="btn primary"
+            className="retro-btn primary"
             disabled={!canNext}
             onClick={() => setStep(step + 1)}
           >
-            Next
+            Next &gt;&gt;
           </button>
         ) : (
           <button
-            className="btn primary"
+            className="retro-btn primary"
             disabled={creating || selectedKeys.size === 0}
             onClick={handleCreate}
           >
-            {creating ? "Creating…" : "Create Set"}
+            {creating ? "Creating..." : "[ Create Set ]"}
           </button>
         )}
       </div>
     </div>
   );
+}
+
+/** Tiny helper so sibling elements can share a React key. */
+function FragmentRow({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }
