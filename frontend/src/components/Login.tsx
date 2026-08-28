@@ -80,8 +80,8 @@ export default function Login() {
   return (
     <div className="login-page">
       <pre className="ascii-cats">{CATS}</pre>
-      <h1>=== HSK Vocab Trainer ===</h1>
-      <p className="login-sub">Your retro guide to all 10,057 HSK words.</p>
+      <h1>=== HSK Vocab Learner ===</h1>
+      <p className="login-sub">Your retro guide to all 1-9 HSK levels.</p>
 
       <form
         onSubmit={(e) => {
@@ -199,7 +199,7 @@ export default function Login() {
 
       <hr />
       <p className="login-footer">
-        Best viewed with Netscape Navigator 4.0 | © 2026 HSK Vocab Trainer
+        Dawn without the w is Dan, that's pretty cool | © 2026 HSK Vocab Trainer
       </p>
     </div>
   );
