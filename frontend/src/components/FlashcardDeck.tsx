@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { characterFor, displayFor } from "../utils/vocab";
 import type {
   CharacterType,
@@ -49,16 +49,29 @@ export default function FlashcardDeck({
   const [viewIndex, setViewIndex] = useState(0);
   const [showCongrats, setShowCongrats] = useState(false);
 
-  // Sync from the parent deck ONLY when new cards appear (skip cascade pulls
-  // a card forward from the next deck). Status-only changes must NOT reset the
-  // stack, otherwise already-processed cards would pop back to the top.
+  // Keys of the decks we have already seen. Used to detect ONLY genuinely new
+  // arrivals (skip cascade pulling cards forward from the next deck). Status
+  // changes must NOT trigger a resync: the parent deck still contains the
+  // processed card (its status changed), and re-importing it would pop it
+  // back to the top instead of dropping it from the study queue.
+  const prevDeckKeysRef = useRef<Set<string>>(new Set(deck.map(keyOf)));
+
   useEffect(() => {
-    const prevKeys = new Set(localDeck.map(keyOf));
-    const hasNewCards = deck.some((h) => !prevKeys.has(keyOf(h)));
-    if (hasNewCards) {
-      setLocalDeck([...deck]);
-      setViewIndex(0);
+    const newCards = deck.filter(
+      (h) => !prevDeckKeysRef.current.has(keyOf(h))
+    );
+    if (newCards.length > 0) {
+      // Skip cascade: append only the freshly pulled-in cards, keeping the
+      // local processing order (no already-processed cards re-imported).
+      setLocalDeck((prev) => {
+        const merged = [...prev];
+        for (const card of newCards) {
+          if (!prev.some((h) => keyOf(h) === keyOf(card))) merged.push(card);
+        }
+        return merged;
+      });
     }
+    prevDeckKeysRef.current = new Set(deck.map(keyOf));
     setFlipped(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck]);
