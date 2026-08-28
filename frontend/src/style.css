@@ -868,14 +868,6 @@ label {
   border-style: groove;
 }
 
-.flashcard-edge-hint {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-dim);
-  text-align: center;
-  margin: 0 0 6px;
-}
-
 .flashcard-scene {
   perspective: 1000px;
   width: 100%;

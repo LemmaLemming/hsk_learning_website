@@ -130,22 +130,12 @@ export default function FlashcardDeck({
     return <p className="placeholder">No cards in this deck.</p>;
   }
 
-  const atStart = viewIndex === 0 && localDeck.length > 0;
-  const atEnd = viewIndex === localDeck.length - 1 && localDeck.length > 0;
-
   return (
     <>
       <p className="flashcard-meta">
         Day {deckIndex} &mdash; {remaining} card
         {remaining === 1 ? "" : "s"} remaining
       </p>
-
-      {/* Edge-of-deck indicator */}
-      {localDeck.length > 1 && (atStart || atEnd) && (
-        <p className="flashcard-edge-hint">
-          {atStart ? "== FIRST CARD ==" : "== LAST CARD =="}
-        </p>
-      )}
 
       <div className="flashcard-nav">
         <button
