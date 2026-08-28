@@ -137,7 +137,7 @@ export default function Onboarding() {
                   checked={targetLevels.includes(lvl)}
                   onChange={() => toggleLevel(lvl)}
                 />
-                <span>HSK {lvl}</span>
+                <span>HSK {lvl === 7 ? "7-9" : lvl}</span>
               </label>
             ))}
           </div>
