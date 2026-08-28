@@ -8,12 +8,16 @@ import {
 } from "@hello-pangea/dnd";
 import { useAuth } from "../contexts/AuthContext";
 import { getSet, updateSet, touchSet, saveLastPage } from "../services/setService";
-import { getOrCreateUserDoc } from "../services/userService";
+import {
+  getOrCreateUserDoc,
+  updateUserPreferences,
+} from "../services/userService";
 import { getVocabById } from "../services/vocabLoader";
 import { useVocabData } from "../hooks/useVocabData";
 import { useAutosave } from "../hooks/useAutosave";
 import VocabCard from "../components/VocabCard";
 import FlashcardDeck from "../components/FlashcardDeck";
+import TutorialPopover from "../components/TutorialPopover";
 import AddVocabModal from "../components/AddVocabModal";
 import {
   DEFAULT_FLASHCARD_FRONT_FIELDS,
@@ -27,6 +31,26 @@ import {
 type StatusFilter = VocabStatus | "all";
 
 const keyOf = (item: VocabItem) => `${item.level}:${item.vocabId}`;
+
+// Onboarding tutorial steps 8-10 (study view controls).
+interface StudyTourStep {
+  selector: string;
+  body: string;
+}
+const STUDY_TOUR: StudyTourStep[] = [
+  {
+    selector: "[data-tour='shuffle-btn']",
+    body: "Shuffle to randomize your deck.",
+  },
+  {
+    selector: "[data-tour='add-vocab-btn']",
+    body: "Click to add vocab.",
+  },
+  {
+    selector: "[data-tour='subset-size-input']",
+    body: "Create daily vocabulary flashcards by setting a deck size and clicking \"go\".",
+  },
+];
 
 /**
  * After a skip, rebalances the decks so each deck maintains subsetSize cards.
@@ -74,6 +98,8 @@ export default function SetDetail() {
   const [subsetInput, setSubsetInput] = useState("");
   const [version, setVersion] = useState(0);
   const [page, setPage] = useState(0);
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  const [labelsActive, setLabelsActive] = useState(false);
 
   // Load the set document
   useEffect(() => {
@@ -323,6 +349,55 @@ export default function SetDetail() {
     setPage(0);
   }, [filter, subsetSize, shuffled, loaded]);
 
+  // Onboarding tutorial (steps 10-12) for first-time users.
+  useEffect(() => {
+    if (
+      prefs &&
+      prefs.hasSeenCreateSetTutorial === false &&
+      loaded &&
+      items.length > 0 &&
+      tourStep === null &&
+      !labelsActive
+    ) {
+      setTourStep(10);
+    }
+  }, [prefs, loaded, items.length, tourStep, labelsActive]);
+
+  // Auto-advance tutorial steps 10-12 when the pointed-out action happens.
+  useEffect(() => {
+    if (tourStep === null || tourStep < 10 || tourStep > 12) return;
+    let done = false;
+    if (tourStep === 10) done = shuffled; // clicked Shuffle
+    else if (tourStep === 11) done = showAdd; // clicked + Add vocab
+    else if (tourStep === 12) done = subsetSize !== null; // deck size + Go
+    if (!done) return;
+    if (tourStep === 11) setShowAdd(false); // close modal so step 12 is reachable
+    if (tourStep === 12) {
+      setTourStep(null);
+      setLabelsActive(true);
+    } else {
+      setTourStep(tourStep + 1);
+    }
+  }, [tourStep, shuffled, showAdd, subsetSize]);
+
+  const finishTutorial = async () => {
+    setTourStep(null);
+    setLabelsActive(false);
+    // Optimistically mark the tutorial seen locally so the start effect
+    // doesn't immediately restart the tour while Firestore catches up.
+    setPrefs((prev) =>
+      prev ? { ...prev, hasSeenCreateSetTutorial: true } : prev
+    );
+    if (!user) return;
+    try {
+      await updateUserPreferences(user.uid, {
+        hasSeenCreateSetTutorial: true,
+      });
+    } catch {
+      /* non-critical; popups already hidden locally */
+    }
+  };
+
   const total = items.length;
 
   const saveText =
@@ -364,6 +439,7 @@ export default function SetDetail() {
               className="retro-btn"
               onClick={handleShuffle}
               disabled={total < 2}
+              data-tour="shuffle-btn"
             >
               [ Shuffle ]
             </button>
@@ -377,12 +453,17 @@ export default function SetDetail() {
                 placeholder="10"
                 value={subsetInput}
                 onChange={(e) => setSubsetInput(e.target.value)}
+                data-tour="subset-size-input"
               />
               <button className="retro-btn" onClick={applySubset}>
                 [ Go ]
               </button>
             </div>
-            <button className="retro-btn primary" onClick={() => setShowAdd(true)}>
+            <button
+              className="retro-btn primary"
+              onClick={() => setShowAdd(true)}
+              data-tour="add-vocab-btn"
+            >
               [ + Add vocab ]
             </button>
           </div>
@@ -421,6 +502,28 @@ export default function SetDetail() {
           )}
           {!vocabLoading && filteredHydrated.length > 0 && (
             <>
+              {totalPages > 1 && (
+                <div className="pagination-controls">
+                  <button
+                    className="retro-btn"
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  >
+                    [ &lt;&lt; Prev ]
+                  </button>
+                  <span className="page-indicator">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <button
+                    className="retro-btn"
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  >
+                    [ Next &gt;&gt; ]
+                  </button>
+                </div>
+              )}
+
               {subsetSize && subsetSize > 0 ? (
                 /* FLASHCARD MODE — one deck per page, stacked flashcards */
                 <>
@@ -440,8 +543,29 @@ export default function SetDetail() {
                       }
                       onStatusChange={cycleStatus}
                       onSkip={handleSkip}
+                      tutorialLabels={labelsActive}
+                      onTutorialCompleted={finishTutorial}
                       onDeckComplete={() => {
                         /* optional: could auto-advance to next day here */
+                      }}
+                      onContinue={() =>
+                        setPage((p) => Math.min(totalPages - 1, p + 1))
+                      }
+                      onRedo={() => {
+                        // Re-tag every card of the current deck as unlearned.
+                        const deckCards = visibleSubsets[0] ?? [];
+                        if (deckCards.length === 0) return;
+                        const deckKeys = new Set(
+                          deckCards.map((h) => keyOf(h.item))
+                        );
+                        setItems((prev) =>
+                          prev.map((i) =>
+                            deckKeys.has(keyOf(i))
+                              ? { ...i, status: "unlearned" as VocabStatus }
+                              : i
+                          )
+                        );
+                        bump();
                       }}
                     />
                   )}
@@ -518,28 +642,6 @@ export default function SetDetail() {
                   </div>
                 </DragDropContext>
               )}
-
-              {totalPages > 1 && (
-                <div className="pagination-controls">
-                  <button
-                    className="retro-btn"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  >
-                    [ &lt;&lt; Prev ]
-                  </button>
-                  <span className="page-indicator">
-                    Page {page + 1} of {totalPages}
-                  </span>
-                  <button
-                    className="retro-btn"
-                    disabled={page >= totalPages - 1}
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  >
-                    [ Next &gt;&gt; ]
-                  </button>
-                </div>
-              )}
             </>
           )}
         </>
@@ -550,6 +652,29 @@ export default function SetDetail() {
           existingKeys={new Set(items.map(keyOf))}
           onAdd={addItems}
           onClose={() => setShowAdd(false)}
+        />
+      )}
+
+      {/* ---------- Onboarding tutorial: steps 10-12 ---------- */}
+      {tourStep !== null && tourStep >= 10 && tourStep <= 12 && (
+        <TutorialPopover
+          targetSelector={STUDY_TOUR[tourStep - 10].selector}
+          body={STUDY_TOUR[tourStep - 10].body}
+          placement="bottom"
+          stepNumber={tourStep}
+          totalSteps={16}
+          primaryLabel={tourStep === 11 ? "Next" : undefined}
+          onPrimary={
+            tourStep === 11
+              ? () => {
+                  setShowAdd(false);
+                  setTourStep(tourStep + 1);
+                }
+              : undefined
+          }
+          onSkip={() => {
+            void finishTutorial();
+          }}
         />
       )}
     </div>

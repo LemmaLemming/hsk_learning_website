@@ -831,6 +831,43 @@ label {
 }
 
 /* ---------- FLASHCARD DECK ---------- */
+.flashcard-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.flashcard-nav .flashcard-scene {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.flashcard-nav-btn {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 2px outset var(--border);
+  background: #ddd;
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.flashcard-nav-btn:active {
+  border-style: inset;
+}
+
+.flashcard-nav-btn:disabled {
+  color: #999;
+  background: #eee;
+  cursor: default;
+  border-style: groove;
+}
+
 .flashcard-scene {
   perspective: 1000px;
   width: 100%;
@@ -1005,6 +1042,13 @@ label {
   color: var(--text-dim);
 }
 
+.congrats-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .congrats-stars {
   font-size: 36px;
   margin-bottom: 12px;
@@ -1143,4 +1187,108 @@ label {
   color: var(--success);
   font-family: var(--font-mono);
   margin-left: 8px;
+}
+
+/* ============================================================
+   TUTORIAL POPOVER
+   ============================================================ */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 90;
+  pointer-events: none;
+}
+
+.tutorial-popover {
+  position: fixed;
+  z-index: 100;
+  width: 280px;
+  background: var(--bg-card);
+  border: 3px ridge var(--border-dark);
+  padding: 14px;
+  font-family: var(--font-body);
+  pointer-events: auto;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.25); /* retro hard shadow */
+}
+
+.tutorial-popover h4 {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.tutorial-popover p {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.tutorial-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.tutorial-actions .retro-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.tutorial-skip {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.tutorial-step-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  flex: 1;
+  text-align: center;
+}
+
+/* Arrow base */
+.tutorial-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+/* Arrow pointing UP (popover below target) */
+.tutorial-popover[data-placement="bottom"] .tutorial-arrow {
+  top: -10px;
+  left: 50%;
+  margin-left: -10px;
+  border-width: 0 10px 10px 10px;
+  border-color: transparent transparent var(--border-dark) transparent;
+}
+
+/* Arrow pointing DOWN (popover above target) */
+.tutorial-popover[data-placement="top"] .tutorial-arrow {
+  bottom: -10px;
+  left: 50%;
+  margin-left: -10px;
+  border-width: 10px 10px 0 10px;
+  border-color: var(--border-dark) transparent transparent transparent;
+}
+
+/* Arrow pointing RIGHT (popover left of target) */
+.tutorial-popover[data-placement="right"] .tutorial-arrow {
+  left: -10px;
+  top: 50%;
+  margin-top: -10px;
+  border-width: 10px 10px 10px 0;
+  border-color: transparent var(--border-dark) transparent transparent;
+}
+
+/* Arrow pointing LEFT (popover right of target) */
+.tutorial-popover[data-placement="left"] .tutorial-arrow {
+  right: -10px;
+  top: 50%;
+  margin-top: -10px;
+  border-width: 10px 0 10px 10px;
+  border-color: transparent transparent transparent var(--border-dark);
 }
