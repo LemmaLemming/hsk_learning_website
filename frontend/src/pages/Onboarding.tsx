@@ -79,9 +79,9 @@ export default function Onboarding() {
 
   return (
     <div className="onboarding-page">
-      <h1>=== Welcome, new user! ===</h1>
+      <h1>=== Welcome new user! ===</h1>
       <pre className="ascii-cats" style={{ fontSize: 12 }}>
-        {"    (\\_/)\n    (o.o)   Just two quick questions...\n     > ^ <"}
+        {"    (\\_/)\n    (o.o)   Just two quick questions \u{1F64F}\u{1F64F}\n     > ^ <"}
       </pre>
       <p className="step-indicator">
         Step {step} of 2 {step === 1 ? "— Who are you?" : "— Your HSK levels"}
