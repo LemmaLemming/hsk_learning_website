@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import TutorialPopover from "../components/TutorialPopover";
 import { useVocabData } from "../hooks/useVocabData";
 import { loadLevel } from "../services/vocabLoader";
 import { createSet } from "../services/setService";
-import type { VocabEntry, VocabItem } from "../types";
+import {
+  getOrCreateUserDoc,
+  updateUserPreferences,
+} from "../services/userService";
+import type { UserPreferences, VocabEntry, VocabItem } from "../types";
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7];
 const STEPS = ["Name", "Levels", "Review", "Create"];
@@ -27,6 +32,46 @@ interface EntryRef {
 
 const keyOf = (level: number, id: number) => `${level}:${id}`;
 
+// Onboarding tutorial steps 2-9 (step 1 lives on the dashboard).
+interface TourStepDef {
+  selector: string;
+  body: string;
+}
+const CREATE_TOUR: TourStepDef[] = [
+  {
+    selector: "[data-tour='set-name-input']",
+    body: "Type a name for your set.",
+  },
+  {
+    selector: "[data-tour='next-btn']",
+    body: "Click next.",
+  },
+  {
+    selector: "[data-tour='level-4-check']",
+    body: "Click the check marks to include these words in the set.",
+  },
+  {
+    selector: "[data-tour='level-5-browse']",
+    body: "Click the browse hyperlink to choose individual words.",
+  },
+  {
+    selector: "[data-tour='level-5-check']",
+    body: "Click the include checkmark to inverse-select words in an HSK level.",
+  },
+  {
+    selector: "[data-tour='next-btn']",
+    body: "Click next.",
+  },
+  {
+    selector: "[data-tour='next-btn']",
+    body: "Once finished reviewing, click next.",
+  },
+  {
+    selector: "[data-tour='create-set-btn']",
+    body: "Click create set!",
+  },
+];
+
 export default function CreateSet() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -38,6 +83,8 @@ export default function CreateSet() {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const [tourStep, setTourStep] = useState<number | null>(null);
 
   // Expanded level vocab browsing (Step 2)
   const [expandedLevel, setExpandedLevel] = useState<number | null>(null);
@@ -48,6 +95,77 @@ export default function CreateSet() {
   const [expandQuery, setExpandQuery] = useState("");
 
   const { data, loading, error: loadError } = useVocabData(selectedLevels);
+
+  // Load prefs to know whether the onboarding tutorial still needs to run.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    getOrCreateUserDoc(user)
+      .then((p) => {
+        if (active) setPrefs(p);
+      })
+      .catch(() => {
+        /* preferences optional */
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  // Start the tutorial at step 2 (step 1 was shown on the dashboard).
+  useEffect(() => {
+    if (prefs && prefs.hasSeenCreateSetTutorial === false && tourStep === null) {
+      setTourStep(2);
+    }
+  }, [prefs, tourStep]);
+
+  // Auto-advance the tutorial when the user performs the pointed-out action.
+  // Wizard transitions (Next buttons) are manual: the popup stays until the
+  // user clicks the wizard's own Next button.
+  useEffect(() => {
+    if (tourStep === null || tourStep < 2 || tourStep > 9) return;
+    let done = false;
+    switch (tourStep) {
+      case 2:
+        done = name.trim().length > 0; // typed a set name (no wizard jump)
+        break;
+      case 3:
+        done = step >= 1; // clicked wizard Next on the name screen
+        break;
+      case 4:
+        done = selectedLevels.includes(4); // checked HSK 4
+        break;
+      case 5:
+        done = expandedLevel === 5; // browsed HSK 5
+        break;
+      case 6:
+        done = selectedLevels.includes(5); // checked HSK 5
+        break;
+      case 7:
+        done = step >= 2; // clicked wizard Next on the levels screen
+        break;
+      case 8:
+        done = step >= 3; // clicked wizard Next on the review screen
+        break;
+      // case 9: advances implicitly when Create Set is clicked (navigation)
+    }
+    if (!done) return;
+    setTourStep(tourStep + 1);
+  }, [tourStep, name, selectedLevels, expandedLevel, step]);
+
+  const skipTour = async () => {
+    setTourStep(null);
+    // Optimistically mark seen locally so the tour doesn't instantly restart.
+    setPrefs((prev) =>
+      prev ? { ...prev, hasSeenCreateSetTutorial: true } : prev
+    );
+    if (!user) return;
+    try {
+      await updateUserPreferences(user.uid, { hasSeenCreateSetTutorial: true });
+    } catch {
+      /* non-critical */
+    }
+  };
 
   const allEntries = useMemo<EntryRef[]>(() => {
     const out: EntryRef[] = [];
@@ -219,6 +337,7 @@ export default function CreateSet() {
             placeholder="e.g. HSK 1+2 mix"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            data-tour="set-name-input"
           />
         </fieldset>
       )}
@@ -248,6 +367,13 @@ export default function CreateSet() {
                         type="checkbox"
                         checked={selectedLevels.includes(lvl)}
                         onChange={() => toggleLevel(lvl)}
+                        data-tour={
+                          lvl === 4
+                            ? "level-4-check"
+                            : lvl === 5
+                              ? "level-5-check"
+                              : undefined
+                        }
                       />
                     </td>
                     <td className="level-name-cell">
@@ -269,6 +395,7 @@ export default function CreateSet() {
                           e.preventDefault();
                           void expandLevel(lvl);
                         }}
+                        data-tour={lvl === 5 ? "level-5-browse" : undefined}
                       >
                         {expandedLevel === lvl ? "[close]" : "[browse ↕]"}
                       </a>
@@ -456,6 +583,7 @@ export default function CreateSet() {
             className="retro-btn primary"
             disabled={!canNext}
             onClick={() => setStep(step + 1)}
+            data-tour="next-btn"
           >
             Next &gt;&gt;
           </button>
@@ -464,11 +592,26 @@ export default function CreateSet() {
             className="retro-btn primary"
             disabled={creating || selectedKeys.size === 0}
             onClick={handleCreate}
+            data-tour="create-set-btn"
           >
             {creating ? "Creating..." : "[ Create Set ]"}
           </button>
         )}
       </div>
+
+      {/* ---------- Onboarding tutorial: steps 2-9 ---------- */}
+      {tourStep !== null && tourStep >= 2 && tourStep <= 9 && (
+        <TutorialPopover
+          targetSelector={CREATE_TOUR[tourStep - 2].selector}
+          body={CREATE_TOUR[tourStep - 2].body}
+          placement={tourStep === 9 ? "top" : "bottom"}
+          stepNumber={tourStep}
+          totalSteps={16}
+          onSkip={() => {
+            void skipTour();
+          }}
+        />
+      )}
     </div>
   );
 }

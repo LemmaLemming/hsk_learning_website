@@ -12,6 +12,7 @@ import {
   updateUserPreferences,
 } from "../services/userService";
 import GlobalSettings from "../components/GlobalSettings";
+import TutorialPopover from "../components/TutorialPopover";
 import type {
   CharacterType,
   PageSize,
@@ -124,6 +125,21 @@ export default function SetList() {
     setPrefs((prev) => (prev ? { ...prev, ...p } : prev));
   };
 
+  // Onboarding tutorial: mark it as seen so popups never reappear.
+  const finishTutorial = async () => {
+    if (!user) return;
+    try {
+      await updateUserPreferences(user.uid, {
+        hasSeenCreateSetTutorial: true,
+      });
+    } catch {
+      /* non-critical; popup still hides locally */
+    }
+    setPrefs((prev) =>
+      prev ? { ...prev, hasSeenCreateSetTutorial: true } : prev
+    );
+  };
+
   const confirmDelete = async (set: SetWithId) => {
     if (!user) return;
     const ok = window.confirm(
@@ -141,9 +157,9 @@ export default function SetList() {
 
   const allCounts = sets
     ? {
-        learnt: sets.reduce((n, s) => n + statusCounts(s).learnt, 0),
-        skipped: sets.reduce((n, s) => n + statusCounts(s).skipped, 0),
-      }
+      learnt: sets.reduce((n, s) => n + statusCounts(s).learnt, 0),
+      skipped: sets.reduce((n, s) => n + statusCounts(s).skipped, 0),
+    }
     : null;
 
   return (
@@ -177,7 +193,7 @@ export default function SetList() {
       <div className="marquee">
         <span>
           {" "}
-          &gt;&gt;&gt; Welcome to the HSK Vocab Trainer! Create a set, then
+          &gt;&gt;&gt; Welcome to the HSK Vocab Learner! Create a set, then
           click "Study" to start drilling. 加油！{" "}
         </span>
       </div>
@@ -238,7 +254,11 @@ export default function SetList() {
       {/* ---------- Your Sets ---------- */}
       <h2 className="section-title">Your Sets</h2>
       <div className="create-btn-area">
-        <button className="retro-btn primary" onClick={() => navigate("/sets/new")}>
+        <button
+          className="retro-btn primary"
+          data-tour="create-btn"
+          onClick={() => navigate("/sets/new")}
+        >
           [ + Create New Set ]
         </button>
       </div>
@@ -324,6 +344,20 @@ export default function SetList() {
       <footer className="visitor-footer">
         Page hits: 六六六六 | Last updated: {new Date().toLocaleDateString()}
       </footer>
+
+      {/* ---------- Onboarding tutorial: step 1 ---------- */}
+      {prefs && prefs.hasSeenCreateSetTutorial === false && (
+        <TutorialPopover
+          targetSelector="[data-tour='create-btn']"
+          body="Welcome to HSK Vocab Learner! Click here to create a new set."
+          placement="bottom"
+          stepNumber={1}
+          totalSteps={16}
+          onSkip={() => {
+            void finishTutorial();
+          }}
+        />
+      )}
     </div>
   );
 }
