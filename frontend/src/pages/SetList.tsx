@@ -125,7 +125,7 @@ export default function SetList() {
         <div>
           <pre className="ascii-header">{ASCII_HEADER}</pre>
           <div className="user-info">
-            Welcome, <b>{prefs?.displayName ?? user?.displayName ?? ""}</b>
+            What's up, <b>{prefs?.displayName ?? user?.displayName ?? ""}</b>
             {allCounts && (
               <span>
                 | {allCounts.learnt} learnt · {allCounts.skipped} skipped
