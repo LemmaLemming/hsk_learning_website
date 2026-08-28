@@ -5,6 +5,8 @@ interface TutorialPopoverProps {
   title?: string;
   body: string;
   onSkip?: () => void;
+  primaryLabel?: string; // optional button; omit for pure auto-advance steps
+  onPrimary?: () => void;
   placement?: "top" | "bottom" | "left" | "right";
   stepNumber?: number;
   totalSteps?: number;
@@ -50,14 +52,16 @@ function computePosition(
  * (pointer-events: none), so the user can still interact with the highlighted
  * element. Disappears if the target is not in the DOM.
  *
- * There is NO "next" button — the hosting page detects when the user performs
- * the taught action and advances (or hides) the popup itself.
+ * Most steps auto-advance when the hosting page detects the taught action.
+ * Pass `primaryLabel`/`onPrimary` only for steps that get a manual button.
  */
 export default function TutorialPopover({
   targetSelector,
   title,
   body,
   onSkip,
+  primaryLabel,
+  onPrimary,
   placement = "bottom",
   stepNumber,
   totalSteps,
@@ -128,6 +132,15 @@ export default function TutorialPopover({
           <span className="tutorial-step-count">
             {stepNumber && totalSteps ? `${stepNumber} / ${totalSteps}` : ""}
           </span>
+          {primaryLabel && onPrimary && (
+            <button
+              type="button"
+              className="retro-btn primary"
+              onClick={onPrimary}
+            >
+              {primaryLabel}
+            </button>
+          )}
         </div>
       </div>
     </>

@@ -32,42 +32,42 @@ interface EntryRef {
 
 const keyOf = (level: number, id: number) => `${level}:${id}`;
 
-// Onboarding tutorial steps 2-7 (step 1 lives on the dashboard).
-// `wizardStep` is the 0-based step state of the wizard each popup belongs to.
+// Onboarding tutorial steps 2-9 (step 1 lives on the dashboard).
 interface TourStepDef {
   selector: string;
-  wizardStep: number;
   body: string;
 }
 const CREATE_TOUR: TourStepDef[] = [
   {
     selector: "[data-tour='set-name-input']",
-    wizardStep: 0,
     body: "Type a name for your set.",
   },
   {
+    selector: "[data-tour='next-btn']",
+    body: "Click next.",
+  },
+  {
     selector: "[data-tour='level-4-check']",
-    wizardStep: 1,
     body: "Click the check marks to include these words in the set.",
   },
   {
     selector: "[data-tour='level-5-browse']",
-    wizardStep: 1,
     body: "Click the browse hyperlink to choose individual words.",
   },
   {
     selector: "[data-tour='level-5-check']",
-    wizardStep: 1,
     body: "Click the include checkmark to inverse-select words in an HSK level.",
   },
   {
     selector: "[data-tour='next-btn']",
-    wizardStep: 1,
+    body: "Click next.",
+  },
+  {
+    selector: "[data-tour='next-btn']",
     body: "Once finished reviewing, click next.",
   },
   {
     selector: "[data-tour='create-set-btn']",
-    wizardStep: 3,
     body: "Click create set!",
   },
 ];
@@ -120,29 +120,36 @@ export default function CreateSet() {
   }, [prefs, tourStep]);
 
   // Auto-advance the tutorial when the user performs the pointed-out action.
+  // Wizard transitions (Next buttons) are manual: the popup stays until the
+  // user clicks the wizard's own Next button.
   useEffect(() => {
-    if (tourStep === null || tourStep < 2 || tourStep > 7) return;
+    if (tourStep === null || tourStep < 2 || tourStep > 9) return;
     let done = false;
     switch (tourStep) {
       case 2:
-        done = name.trim().length > 0; // typed a set name
+        done = name.trim().length > 0; // typed a set name (no wizard jump)
         break;
       case 3:
-        done = selectedLevels.includes(4); // checked HSK 4
+        done = step >= 1; // clicked wizard Next on the name screen
         break;
       case 4:
-        done = expandedLevel === 5; // browsed HSK 5
+        done = selectedLevels.includes(4); // checked HSK 4
         break;
       case 5:
-        done = selectedLevels.includes(5); // checked HSK 5
+        done = expandedLevel === 5; // browsed HSK 5
         break;
       case 6:
-        done = step >= 2; // clicked wizard Next (levels -> review)
+        done = selectedLevels.includes(5); // checked HSK 5
         break;
-      // case 7: advances implicitly when Create Set is clicked (navigation)
+      case 7:
+        done = step >= 2; // clicked wizard Next on the levels screen
+        break;
+      case 8:
+        done = step >= 3; // clicked wizard Next on the review screen
+        break;
+      // case 9: advances implicitly when Create Set is clicked (navigation)
     }
     if (!done) return;
-    if (tourStep === 2) setStep(1); // move to the levels screen for step 3
     setTourStep(tourStep + 1);
   }, [tourStep, name, selectedLevels, expandedLevel, step]);
 
@@ -588,14 +595,14 @@ export default function CreateSet() {
         )}
       </div>
 
-      {/* ---------- Onboarding tutorial: steps 2-7 ---------- */}
-      {tourStep !== null && tourStep >= 2 && tourStep <= 7 && (
+      {/* ---------- Onboarding tutorial: steps 2-9 ---------- */}
+      {tourStep !== null && tourStep >= 2 && tourStep <= 9 && (
         <TutorialPopover
           targetSelector={CREATE_TOUR[tourStep - 2].selector}
           body={CREATE_TOUR[tourStep - 2].body}
-          placement={tourStep === 7 ? "top" : "bottom"}
+          placement={tourStep === 9 ? "top" : "bottom"}
           stepNumber={tourStep}
-          totalSteps={13}
+          totalSteps={15}
           onSkip={() => {
             void skipTour();
           }}

@@ -349,7 +349,7 @@ export default function SetDetail() {
     setPage(0);
   }, [filter, subsetSize, shuffled, loaded]);
 
-  // Onboarding tutorial (steps 8-10) for first-time users.
+  // Onboarding tutorial (steps 10-12) for first-time users.
   useEffect(() => {
     if (
       prefs &&
@@ -359,20 +359,20 @@ export default function SetDetail() {
       tourStep === null &&
       !labelsActive
     ) {
-      setTourStep(8);
+      setTourStep(10);
     }
   }, [prefs, loaded, items.length, tourStep, labelsActive]);
 
-  // Auto-advance tutorial steps 8-10 when the pointed-out action happens.
+  // Auto-advance tutorial steps 10-12 when the pointed-out action happens.
   useEffect(() => {
-    if (tourStep === null || tourStep < 8 || tourStep > 10) return;
+    if (tourStep === null || tourStep < 10 || tourStep > 12) return;
     let done = false;
-    if (tourStep === 8) done = shuffled; // clicked Shuffle
-    else if (tourStep === 9) done = showAdd; // clicked + Add vocab
-    else if (tourStep === 10) done = subsetSize !== null; // deck size + Go
+    if (tourStep === 10) done = shuffled; // clicked Shuffle
+    else if (tourStep === 11) done = showAdd; // clicked + Add vocab
+    else if (tourStep === 12) done = subsetSize !== null; // deck size + Go
     if (!done) return;
-    if (tourStep === 9) setShowAdd(false); // close modal so step 10 is reachable
-    if (tourStep === 10) {
+    if (tourStep === 11) setShowAdd(false); // close modal so step 12 is reachable
+    if (tourStep === 12) {
       setTourStep(null);
       setLabelsActive(true);
     } else {
@@ -650,14 +650,23 @@ export default function SetDetail() {
         />
       )}
 
-      {/* ---------- Onboarding tutorial: steps 8-10 ---------- */}
-      {tourStep !== null && tourStep >= 8 && tourStep <= 10 && (
+      {/* ---------- Onboarding tutorial: steps 10-12 ---------- */}
+      {tourStep !== null && tourStep >= 10 && tourStep <= 12 && (
         <TutorialPopover
-          targetSelector={STUDY_TOUR[tourStep - 8].selector}
-          body={STUDY_TOUR[tourStep - 8].body}
+          targetSelector={STUDY_TOUR[tourStep - 10].selector}
+          body={STUDY_TOUR[tourStep - 10].body}
           placement="bottom"
           stepNumber={tourStep}
-          totalSteps={13}
+          totalSteps={15}
+          primaryLabel={tourStep === 11 ? "Next" : undefined}
+          onPrimary={
+            tourStep === 11
+              ? () => {
+                  setShowAdd(false);
+                  setTourStep(tourStep + 1);
+                }
+              : undefined
+          }
           onSkip={() => {
             void finishTutorial();
           }}

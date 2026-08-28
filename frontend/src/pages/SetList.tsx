@@ -352,7 +352,7 @@ export default function SetList() {
           body="Welcome to HSK Vocab Learner! Click here to create a new set."
           placement="bottom"
           stepNumber={1}
-          totalSteps={13}
+          totalSteps={15}
           onSkip={() => {
             void finishTutorial();
           }}

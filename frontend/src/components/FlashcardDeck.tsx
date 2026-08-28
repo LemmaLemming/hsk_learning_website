@@ -341,14 +341,16 @@ export default function FlashcardDeck({
         </div>
       )}
 
-      {/* ---------- Onboarding tutorial: steps 11-13 (status labels) ---------- */}
+      {/* ---------- Onboarding tutorial: steps 13-15 (status labels) ---------- */}
       {labelStep === 1 && (
         <TutorialPopover
           targetSelector="[data-tour='fc-learnt']"
           body="After clicking learnt, the card is archived until all cards are learnt."
           placement="top"
-          stepNumber={11}
-          totalSteps={13}
+          stepNumber={13}
+          totalSteps={15}
+          primaryLabel="Next"
+          onPrimary={() => setLabelStep(2)}
           onSkip={finishLabelTour}
         />
       )}
@@ -357,8 +359,10 @@ export default function FlashcardDeck({
           targetSelector="[data-tour='fc-skip']"
           body="Skip this vocabulary if you already know it. It won't be seen again, and another word will replace it."
           placement="top"
-          stepNumber={12}
-          totalSteps={13}
+          stepNumber={14}
+          totalSteps={15}
+          primaryLabel="Next"
+          onPrimary={() => setLabelStep(3)}
           onSkip={finishLabelTour}
         />
       )}
@@ -367,8 +371,10 @@ export default function FlashcardDeck({
           targetSelector="[data-tour='fc-notlearnt']"
           body="If you got it wrong, click not learnt and it will be tested again."
           placement="top"
-          stepNumber={13}
-          totalSteps={13}
+          stepNumber={15}
+          totalSteps={15}
+          primaryLabel="Finish"
+          onPrimary={finishLabelTour}
           onSkip={finishLabelTour}
         />
       )}
