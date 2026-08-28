@@ -108,6 +108,12 @@ hr {
   font-size: 13px;
 }
 
+/* Equal-size header buttons (e.g. Settings / Sign out on dashboard) */
+.page-header .retro-btn {
+  min-width: 140px;
+  text-align: center;
+}
+
 /* ---------- ASCII ART ---------- */
 .ascii-header,
 .ascii-cats {
