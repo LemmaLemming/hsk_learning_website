@@ -195,22 +195,6 @@ export default function Login() {
         </fieldset>
       </form>
 
-      <div className="google-row">
-        <button
-          type="button"
-          className="retro-btn google-btn"
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-        >
-          <img
-            src="/old_google_button.png"
-            alt="Google"
-            className="google-logo"
-          />
-          Sign in
-        </button>
-      </div>
-
       {error && <pre className="error-pre">*** ERROR: {error} ***</pre>}
 
       <hr />
