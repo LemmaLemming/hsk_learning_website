@@ -363,6 +363,23 @@ export default function SetDetail() {
     }
   }, [prefs, loaded, items.length, tourStep, labelsActive]);
 
+  // Auto-advance tutorial steps 8-10 when the pointed-out action happens.
+  useEffect(() => {
+    if (tourStep === null || tourStep < 8 || tourStep > 10) return;
+    let done = false;
+    if (tourStep === 8) done = shuffled; // clicked Shuffle
+    else if (tourStep === 9) done = showAdd; // clicked + Add vocab
+    else if (tourStep === 10) done = subsetSize !== null; // deck size + Go
+    if (!done) return;
+    if (tourStep === 9) setShowAdd(false); // close modal so step 10 is reachable
+    if (tourStep === 10) {
+      setTourStep(null);
+      setLabelsActive(true);
+    } else {
+      setTourStep(tourStep + 1);
+    }
+  }, [tourStep, shuffled, showAdd, subsetSize]);
+
   const finishTutorial = async () => {
     setTourStep(null);
     setLabelsActive(false);
@@ -638,18 +655,9 @@ export default function SetDetail() {
         <TutorialPopover
           targetSelector={STUDY_TOUR[tourStep - 8].selector}
           body={STUDY_TOUR[tourStep - 8].body}
-          primaryLabel={tourStep === 10 ? "Got it" : "Next"}
           placement="bottom"
           stepNumber={tourStep}
           totalSteps={13}
-          onPrimary={() => {
-            if (tourStep === 10) {
-              setTourStep(null);
-              setLabelsActive(true);
-            } else {
-              setTourStep(tourStep + 1);
-            }
-          }}
           onSkip={() => {
             void finishTutorial();
           }}

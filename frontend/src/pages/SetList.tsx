@@ -350,11 +350,9 @@ export default function SetList() {
         <TutorialPopover
           targetSelector="[data-tour='create-btn']"
           body="Welcome to HSK Vocab Learner! Click here to create a new set."
-          primaryLabel="Next"
           placement="bottom"
           stepNumber={1}
           totalSteps={13}
-          onPrimary={() => navigate("/sets/new")}
           onSkip={() => {
             void finishTutorial();
           }}

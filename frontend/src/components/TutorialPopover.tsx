@@ -4,8 +4,6 @@ interface TutorialPopoverProps {
   targetSelector: string; // e.g. "[data-tour='create-btn']"
   title?: string;
   body: string;
-  primaryLabel: string;
-  onPrimary: () => void;
   onSkip?: () => void;
   placement?: "top" | "bottom" | "left" | "right";
   stepNumber?: number;
@@ -51,13 +49,14 @@ function computePosition(
  * target element found via `targetSelector`. The overlay does NOT block clicks
  * (pointer-events: none), so the user can still interact with the highlighted
  * element. Disappears if the target is not in the DOM.
+ *
+ * There is NO "next" button — the hosting page detects when the user performs
+ * the taught action and advances (or hides) the popup itself.
  */
 export default function TutorialPopover({
   targetSelector,
   title,
   body,
-  primaryLabel,
-  onPrimary,
   onSkip,
   placement = "bottom",
   stepNumber,
@@ -129,9 +128,6 @@ export default function TutorialPopover({
           <span className="tutorial-step-count">
             {stepNumber && totalSteps ? `${stepNumber} / ${totalSteps}` : ""}
           </span>
-          <button type="button" className="retro-btn primary" onClick={onPrimary}>
-            {primaryLabel}
-          </button>
         </div>
       </div>
     </>

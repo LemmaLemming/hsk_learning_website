@@ -43,7 +43,7 @@ const CREATE_TOUR: TourStepDef[] = [
   {
     selector: "[data-tour='set-name-input']",
     wizardStep: 0,
-    body: "Name your set and click next.",
+    body: "Type a name for your set.",
   },
   {
     selector: "[data-tour='level-4-check']",
@@ -119,15 +119,32 @@ export default function CreateSet() {
     }
   }, [prefs, tourStep]);
 
-  // If the user advances the wizard manually, follow them through the tour.
+  // Auto-advance the tutorial when the user performs the pointed-out action.
   useEffect(() => {
-    if (tourStep === null || tourStep > 7) return;
-    const def = CREATE_TOUR[tourStep - 2];
-    if (!def) return;
-    if (step > def.wizardStep) {
-      setTourStep(tourStep + 1);
+    if (tourStep === null || tourStep < 2 || tourStep > 7) return;
+    let done = false;
+    switch (tourStep) {
+      case 2:
+        done = name.trim().length > 0; // typed a set name
+        break;
+      case 3:
+        done = selectedLevels.includes(4); // checked HSK 4
+        break;
+      case 4:
+        done = expandedLevel === 5; // browsed HSK 5
+        break;
+      case 5:
+        done = selectedLevels.includes(5); // checked HSK 5
+        break;
+      case 6:
+        done = step >= 2; // clicked wizard Next (levels -> review)
+        break;
+      // case 7: advances implicitly when Create Set is clicked (navigation)
     }
-  }, [step, tourStep]);
+    if (!done) return;
+    if (tourStep === 2) setStep(1); // move to the levels screen for step 3
+    setTourStep(tourStep + 1);
+  }, [tourStep, name, selectedLevels, expandedLevel, step]);
 
   const skipTour = async () => {
     setTourStep(null);
@@ -576,19 +593,9 @@ export default function CreateSet() {
         <TutorialPopover
           targetSelector={CREATE_TOUR[tourStep - 2].selector}
           body={CREATE_TOUR[tourStep - 2].body}
-          primaryLabel={tourStep === 7 ? "Got it" : "Next"}
           placement={tourStep === 7 ? "top" : "bottom"}
           stepNumber={tourStep}
           totalSteps={13}
-          onPrimary={() => {
-            if (tourStep === 7) {
-              setTourStep(null);
-              return;
-            }
-            const next = CREATE_TOUR[tourStep - 1];
-            if (next) setStep(next.wizardStep);
-            setTourStep(tourStep + 1);
-          }}
           onSkip={() => {
             void skipTour();
           }}

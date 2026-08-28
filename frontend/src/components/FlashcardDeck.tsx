@@ -146,6 +146,15 @@ export default function FlashcardDeck({
 
   const handleSetStatus = (status: VocabStatus) => {
     if (!current) return;
+    // Auto-advance the label tutorial when the taught action is performed.
+    if (labelStep === 1 && status === "learnt") {
+      setLabelStep(2);
+    } else if (labelStep === 2 && status === "skipped") {
+      setLabelStep(3);
+    } else if (labelStep === 3 && status === "unlearned") {
+      setLabelStep(null);
+      onTutorialCompleted?.();
+    }
     // Propagation to the parent for persistence:
     //  - skipped: the parent runs the skip cascade (handles status itself)
     //  - learnt/unlearned: plain status update
@@ -337,11 +346,9 @@ export default function FlashcardDeck({
         <TutorialPopover
           targetSelector="[data-tour='fc-learnt']"
           body="After clicking learnt, the card is archived until all cards are learnt."
-          primaryLabel="Next"
           placement="top"
           stepNumber={11}
           totalSteps={13}
-          onPrimary={() => setLabelStep(2)}
           onSkip={finishLabelTour}
         />
       )}
@@ -349,11 +356,9 @@ export default function FlashcardDeck({
         <TutorialPopover
           targetSelector="[data-tour='fc-skip']"
           body="Skip this vocabulary if you already know it. It won't be seen again, and another word will replace it."
-          primaryLabel="Next"
           placement="top"
           stepNumber={12}
           totalSteps={13}
-          onPrimary={() => setLabelStep(3)}
           onSkip={finishLabelTour}
         />
       )}
@@ -361,11 +366,9 @@ export default function FlashcardDeck({
         <TutorialPopover
           targetSelector="[data-tour='fc-notlearnt']"
           body="If you got it wrong, click not learnt and it will be tested again."
-          primaryLabel="Got it"
           placement="top"
           stepNumber={13}
           totalSteps={13}
-          onPrimary={finishLabelTour}
           onSkip={finishLabelTour}
         />
       )}
