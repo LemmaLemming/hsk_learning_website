@@ -150,7 +150,7 @@ export default function Onboarding() {
               disabled={saving || targetLevels.length === 0}
               onClick={handleFinish}
             >
-              {saving ? "Saving..." : "Finish &gt;&gt;"}
+              {saving ? "Saving..." : "Finish >>"}
             </button>
           </div>
         </fieldset>

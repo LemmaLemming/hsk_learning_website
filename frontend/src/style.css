@@ -161,6 +161,11 @@ legend {
   background: #c8c8c8;
 }
 
+.retro-btn:focus,
+.btn:focus {
+  outline: none;
+}
+
 .retro-btn:disabled,
 .btn:disabled {
   color: #999;
@@ -169,11 +174,17 @@ legend {
   border-style: groove;
 }
 
+/* Selected/toggled state (e.g. settings toggles) — looks pressed */
 .retro-btn.active,
-.btn.active,
+.btn.active {
+  border-style: inset;
+  background: #ffd9d9;
+  font-weight: bold;
+}
+
+/* Primary action — distinct but NOT permanently sunken */
 .retro-btn.primary,
 .btn.primary {
-  border-style: inset;
   background: #ffd9d9;
   font-weight: bold;
 }
