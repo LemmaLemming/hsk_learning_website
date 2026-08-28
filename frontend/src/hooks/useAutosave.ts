@@ -5,11 +5,16 @@ export type SaveStatus = "idle" | "saving" | "saved" | "error";
 /**
  * Debounced autosave: after `data` changes, wait `delay` ms, then call `save`.
  * Also flushes a pending save on `beforeunload` and on unmount.
+ *
+ * `enabled` gates autosaving (e.g. pass `loaded` so populating state after a
+ * fetch doesn't trigger a spurious save). While disabled, the "first data"
+ * skip is NOT consumed, so the first save after enabling is also skipped.
  */
 export function useAutosave<T>(
   save: () => Promise<void>,
   data: T,
-  delay = 2000
+  delay = 2000,
+  enabled = true
 ) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +38,7 @@ export function useAutosave<T>(
   };
 
   useEffect(() => {
+    if (!enabled) return;
     if (first.current) {
       first.current = false;
       return;
@@ -46,7 +52,7 @@ export function useAutosave<T>(
       if (timerRef.current) clearTimeout(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, delay]);
+  }, [data, delay, enabled]);
 
   useEffect(() => {
     const onBeforeUnload = () => {

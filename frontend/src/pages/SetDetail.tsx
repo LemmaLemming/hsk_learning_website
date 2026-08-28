@@ -192,7 +192,7 @@ export default function SetDetail() {
     if (!user || !setId || !loaded) return;
     await updateSet(user.uid, setId, { name, items, shuffled, subsetSize });
   };
-  const autosave = useAutosave(save, saveKey);
+  const autosave = useAutosave(save, saveKey, 2000, loaded);
 
   // --- derived views --------------------------------------------------------
   const counts = useMemo(() => {
