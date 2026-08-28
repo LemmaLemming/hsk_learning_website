@@ -465,6 +465,9 @@ export default function SetDetail() {
                       onDeckComplete={() => {
                         /* optional: could auto-advance to next day here */
                       }}
+                      onContinue={() =>
+                        setPage((p) => Math.min(totalPages - 1, p + 1))
+                      }
                     />
                   )}
                 </>

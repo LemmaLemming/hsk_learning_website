@@ -29,6 +29,7 @@ interface Props {
   onStatusChange: (level: number, vocabId: number, status: VocabStatus) => void;
   onSkip: (level: number, vocabId: number) => void; // distinct from status change
   onDeckComplete: () => void; // called when all cards in deck are "learnt"
+  onContinue?: () => void; // called when the congrats popup is dismissed
 }
 
 const keyOf = (h: HydratedVocabItem) =>
@@ -43,6 +44,7 @@ export default function FlashcardDeck({
   onStatusChange,
   onSkip,
   onDeckComplete,
+  onContinue,
 }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [localDeck, setLocalDeck] = useState<HydratedVocabItem[]>([...deck]);
@@ -137,6 +139,11 @@ export default function FlashcardDeck({
       i === viewIndex ? { ...h, item: { ...h.item, status } } : h
     );
     advanceCard(updated);
+  };
+
+  const handleContinue = () => {
+    setShowCongrats(false);
+    onContinue?.();
   };
 
   if (!current && !showCongrats) {
@@ -279,7 +286,7 @@ export default function FlashcardDeck({
             </p>
             <button
               className="retro-btn primary"
-              onClick={() => setShowCongrats(false)}
+              onClick={handleContinue}
             >
               [ Continue ]
             </button>
