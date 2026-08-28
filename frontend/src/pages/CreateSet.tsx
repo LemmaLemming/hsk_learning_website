@@ -155,6 +155,10 @@ export default function CreateSet() {
 
   const skipTour = async () => {
     setTourStep(null);
+    // Optimistically mark seen locally so the tour doesn't instantly restart.
+    setPrefs((prev) =>
+      prev ? { ...prev, hasSeenCreateSetTutorial: true } : prev
+    );
     if (!user) return;
     try {
       await updateUserPreferences(user.uid, { hasSeenCreateSetTutorial: true });

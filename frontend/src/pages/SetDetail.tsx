@@ -383,6 +383,11 @@ export default function SetDetail() {
   const finishTutorial = async () => {
     setTourStep(null);
     setLabelsActive(false);
+    // Optimistically mark the tutorial seen locally so the start effect
+    // doesn't immediately restart the tour while Firestore catches up.
+    setPrefs((prev) =>
+      prev ? { ...prev, hasSeenCreateSetTutorial: true } : prev
+    );
     if (!user) return;
     try {
       await updateUserPreferences(user.uid, {

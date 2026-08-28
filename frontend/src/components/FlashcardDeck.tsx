@@ -298,8 +298,9 @@ export default function FlashcardDeck({
         </button>
       </div>
 
-      {/* Status buttons — only shown after flip */}
-      {flipped && current && (
+      {/* Status buttons — shown after flip (or kept visible during the label
+          tutorial so the popups can point at them immediately) */}
+      {(flipped && current) || (tutorialLabels && labelStep !== null && current) ? (
         <div className="flashcard-actions">
           <button
             className="flashcard-status-btn learnt"
@@ -323,7 +324,7 @@ export default function FlashcardDeck({
             [ Not Learnt ✗ ]
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* Congrats popup */}
       {showCongrats && (
