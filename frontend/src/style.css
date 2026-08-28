@@ -709,21 +709,53 @@ label {
   padding: 0 4px;
 }
 
-.status-tag {
+/* ---------- Ternary status segmented control ---------- */
+.status-segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-dark);
+}
+
+.seg-btn {
   font-family: var(--font-mono);
-  font-weight: bold;
-  font-size: 13px;
-}
-
-.status-tag.unlearned {
+  font-size: 12px;
+  padding: 4px 8px;
+  background: #eee;
   color: var(--text-dim);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
 }
 
-.status-tag.learnt {
+.seg-btn:last-child {
+  border-right: none;
+}
+
+.seg-btn:hover {
+  background: #ddd;
+}
+
+.seg-btn:focus {
+  outline: none;
+}
+
+/* Active segment = pressed look + status colour */
+.seg-btn.active {
+  font-weight: bold;
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.seg-btn.unlearned.active {
+  background: #ccc;
+  color: var(--text);
+}
+
+.seg-btn.learnt.active {
+  background: #ddffdd;
   color: var(--success);
 }
 
-.status-tag.skipped {
+.seg-btn.skipped.active {
+  background: #ffecd9;
   color: var(--warn);
 }
 
@@ -748,27 +780,6 @@ label {
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
-}
-
-.status-btn {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  padding: 4px 10px;
-  border: 2px outset var(--border);
-  background: #ddd;
-  cursor: pointer;
-}
-
-.status-btn:active {
-  border-style: inset;
-}
-
-.status-btn.learnt {
-  background: #ddffdd;
-}
-
-.status-btn.skipped {
-  background: #ffecd9;
 }
 
 .remove-link {

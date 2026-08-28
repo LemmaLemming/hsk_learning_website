@@ -47,11 +47,8 @@ export default function VocabCard({
   const form = formOf(entry);
   const char = characterFor(entry, characterType);
 
-  const cycle = () => {
-    const idx = STATUS_ORDER.indexOf(status);
-    const nextStatus = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
-    onCycleStatus(hydrated.item.level, hydrated.item.vocabId, nextStatus);
-  };
+  const setStatus = (s: VocabStatus) =>
+    onCycleStatus(hydrated.item.level, hydrated.item.vocabId, s);
 
   return (
     <div className={`vocab-card status-${status}`}>
@@ -60,7 +57,6 @@ export default function VocabCard({
           <span className="vocab-char">{char}</span>
           <span className="vocab-pinyin">{form?.i?.y ?? ""}</span>
           <span className="vocab-level-badge">HSK {hydrated.item.level}</span>
-          <span className={`status-tag ${status}`}>{STATUS_TAG[status]}</span>
         </div>
         <div className="vocab-fields">
           {visibleFields.map((field) => {
@@ -76,9 +72,19 @@ export default function VocabCard({
         </div>
       </div>
       <div className="vocab-actions">
-        <button className={`status-btn ${status}`} onClick={cycle}>
-          {STATUS_TAG[status]}
-        </button>
+        <div className="status-segmented" role="group" aria-label="Learning status">
+          {STATUS_ORDER.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`seg-btn ${s} ${status === s ? "active" : ""}`}
+              aria-pressed={status === s}
+              onClick={() => setStatus(s)}
+            >
+              {STATUS_TAG[s]}
+            </button>
+          ))}
+        </div>
         <a
           className="remove-link"
           href="#"
