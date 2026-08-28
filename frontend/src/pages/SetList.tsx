@@ -287,7 +287,7 @@ export default function SetList() {
       )}
 
       <footer className="visitor-footer">
-        Page hits: 9999 | Last updated: {new Date().toLocaleDateString()}
+        Page hits: 六六六六 | Last updated: {new Date().toLocaleDateString()}
       </footer>
     </div>
   );
