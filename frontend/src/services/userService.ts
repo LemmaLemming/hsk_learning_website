@@ -33,6 +33,7 @@ export interface UserPrefUpdate {
   onboardingComplete?: boolean;
   occupation?: Occupation | null;
   targetLevels?: number[];
+  hasSeenCreateSetTutorial?: boolean;
 }
 
 export async function getOrCreateUserDoc(
@@ -51,7 +52,8 @@ export async function getOrCreateUserDoc(
       data.targetLevels === undefined ||
       data.pageSize === undefined ||
       data.flashcardFrontFields === undefined ||
-      data.flashcardBackFields === undefined
+      data.flashcardBackFields === undefined ||
+      data.hasSeenCreateSetTutorial === undefined
     ) {
       const migrated: UserPreferences = {
         ...data,
@@ -63,6 +65,7 @@ export async function getOrCreateUserDoc(
         onboardingComplete: data.onboardingComplete ?? false,
         occupation: data.occupation ?? null,
         targetLevels: data.targetLevels ?? [],
+        hasSeenCreateSetTutorial: data.hasSeenCreateSetTutorial ?? false,
       };
       await setDoc(ref, migrated, { merge: true });
       return migrated;
@@ -79,6 +82,7 @@ export async function getOrCreateUserDoc(
     onboardingComplete: false,
     occupation: null,
     targetLevels: [],
+    hasSeenCreateSetTutorial: false,
     createdAt: now(),
     updatedAt: now(),
   };

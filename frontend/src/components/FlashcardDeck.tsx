@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import TutorialPopover from "./TutorialPopover";
 import { characterFor, displayFor } from "../utils/vocab";
 import type {
   CharacterType,
@@ -31,6 +32,8 @@ interface Props {
   onDeckComplete: () => void; // called when all cards in deck are "learnt"
   onContinue?: () => void; // called when the congrats popup is dismissed
   onRedo?: () => void; // re-tags every deck card as unlearned and restarts the deck
+  tutorialLabels?: boolean; // run the 3-step label tutorial when buttons show
+  onTutorialCompleted?: () => void; // called when the label tutorial finishes/skips
 }
 
 const keyOf = (h: HydratedVocabItem) =>
@@ -47,11 +50,14 @@ export default function FlashcardDeck({
   onDeckComplete,
   onContinue,
   onRedo,
+  tutorialLabels,
+  onTutorialCompleted,
 }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [localDeck, setLocalDeck] = useState<HydratedVocabItem[]>([...deck]);
   const [viewIndex, setViewIndex] = useState(0);
   const [showCongrats, setShowCongrats] = useState(false);
+  const [labelStep, setLabelStep] = useState<number | null>(null);
 
   // Keys of the decks we have already seen. Used to detect ONLY genuinely new
   // arrivals (skip cascade pulling cards forward from the next deck). Status
@@ -82,6 +88,18 @@ export default function FlashcardDeck({
 
   const current = localDeck[viewIndex] ?? localDeck[0] ?? undefined;
   const remaining = localDeck.length;
+
+  // Label tutorial (steps 11-13): start when the status buttons first appear.
+  useEffect(() => {
+    if (tutorialLabels && flipped && current && labelStep === null) {
+      setLabelStep(1);
+    }
+  }, [tutorialLabels, flipped, current, labelStep]);
+
+  const finishLabelTour = () => {
+    setLabelStep(null);
+    onTutorialCompleted?.();
+  };
 
   const handleFlip = () => {
     if (!current) return;
@@ -268,18 +286,21 @@ export default function FlashcardDeck({
           <button
             className="flashcard-status-btn learnt"
             onClick={() => handleSetStatus("learnt")}
+            data-tour="fc-learnt"
           >
             [ Learnt ✓ ]
           </button>
           <button
             className="flashcard-status-btn skipped"
             onClick={() => handleSetStatus("skipped")}
+            data-tour="fc-skip"
           >
             [ Skip → ]
           </button>
           <button
             className="flashcard-status-btn unlearned"
             onClick={() => handleSetStatus("unlearned")}
+            data-tour="fc-notlearnt"
           >
             [ Not Learnt ✗ ]
           </button>
@@ -309,6 +330,44 @@ export default function FlashcardDeck({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ---------- Onboarding tutorial: steps 11-13 (status labels) ---------- */}
+      {labelStep === 1 && (
+        <TutorialPopover
+          targetSelector="[data-tour='fc-learnt']"
+          body="After clicking learnt, the card is archived until all cards are learnt."
+          primaryLabel="Next"
+          placement="top"
+          stepNumber={11}
+          totalSteps={13}
+          onPrimary={() => setLabelStep(2)}
+          onSkip={finishLabelTour}
+        />
+      )}
+      {labelStep === 2 && (
+        <TutorialPopover
+          targetSelector="[data-tour='fc-skip']"
+          body="Skip this vocabulary if you already know it. It won't be seen again, and another word will replace it."
+          primaryLabel="Next"
+          placement="top"
+          stepNumber={12}
+          totalSteps={13}
+          onPrimary={() => setLabelStep(3)}
+          onSkip={finishLabelTour}
+        />
+      )}
+      {labelStep === 3 && (
+        <TutorialPopover
+          targetSelector="[data-tour='fc-notlearnt']"
+          body="If you got it wrong, click not learnt and it will be tested again."
+          primaryLabel="Got it"
+          placement="top"
+          stepNumber={13}
+          totalSteps={13}
+          onPrimary={finishLabelTour}
+          onSkip={finishLabelTour}
+        />
       )}
     </>
   );

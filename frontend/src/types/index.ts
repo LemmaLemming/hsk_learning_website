@@ -74,6 +74,7 @@ export interface UserPreferences {
   onboardingComplete: boolean; // default: false
   occupation: Occupation | null; // default: null
   targetLevels: number[]; // default: [] (HSK levels 1-7)
+  hasSeenCreateSetTutorial: boolean; // default: false
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
