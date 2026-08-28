@@ -14,6 +14,7 @@ import {
 import GlobalSettings from "../components/GlobalSettings";
 import type {
   CharacterType,
+  PageSize,
   UserPreferences,
   VisibleField,
 } from "../types";
@@ -89,6 +90,7 @@ export default function SetList() {
   const handleSaveSettings = async (p: {
     characterType: CharacterType;
     visibleFields: VisibleField[];
+    pageSize: PageSize;
   }) => {
     if (!user) return;
     await updateUserPreferences(user.uid, p);

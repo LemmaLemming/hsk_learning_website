@@ -1,7 +1,9 @@
 import { useState } from "react";
 import {
   ALL_VISIBLE_FIELDS,
+  PAGE_SIZES,
   type CharacterType,
+  type PageSize,
   type UserPreferences,
   type VisibleField,
 } from "../types";
@@ -24,6 +26,7 @@ interface Props {
   onSave: (prefs: {
     characterType: CharacterType;
     visibleFields: VisibleField[];
+    pageSize: PageSize;
   }) => Promise<void> | void;
 }
 
@@ -33,6 +36,11 @@ export default function GlobalSettings({ prefs, onSave }: Props) {
   );
   const [visibleFields, setVisibleFields] = useState<VisibleField[]>(
     prefs.visibleFields
+  );
+  const [pageSize, setPageSize] = useState<PageSize>(
+    (PAGE_SIZES as readonly number[]).includes(prefs.pageSize)
+      ? (prefs.pageSize as PageSize)
+      : 50
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -49,7 +57,7 @@ export default function GlobalSettings({ prefs, onSave }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave({ characterType, visibleFields });
+      await onSave({ characterType, visibleFields, pageSize });
       setSaved(true);
     } finally {
       setSaving(false);
@@ -96,6 +104,24 @@ export default function GlobalSettings({ prefs, onSave }: Props) {
               />
               <span>{FIELD_LABELS[field]}</span>
             </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="setting-group">
+        <label className="setting-label">Cards per page</label>
+        <div className="toggle-row">
+          {PAGE_SIZES.map((size) => (
+            <button
+              key={size}
+              className={`btn ${pageSize === size ? "active" : ""}`}
+              onClick={() => {
+                setSaved(false);
+                setPageSize(size);
+              }}
+            >
+              {size}
+            </button>
           ))}
         </div>
       </div>

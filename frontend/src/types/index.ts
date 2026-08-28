@@ -42,6 +42,9 @@ export type VisibleField = (typeof ALL_VISIBLE_FIELDS)[number];
 
 export const DEFAULT_VISIBLE_FIELDS: VisibleField[] = ["pinyin", "meaning"];
 
+export const PAGE_SIZES = [10, 25, 50, 100] as const;
+export type PageSize = (typeof PAGE_SIZES)[number];
+
 export type Occupation =
   | "student"
   | "working"
@@ -61,6 +64,7 @@ export interface UserPreferences {
   displayName: string;
   characterType: CharacterType;
   visibleFields: VisibleField[];
+  pageSize: number; // default: 50, valid values: 10, 25, 50, 100
   // New: onboarding fields
   onboardingComplete: boolean; // default: false
   occupation: Occupation | null; // default: null

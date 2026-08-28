@@ -762,6 +762,21 @@ label {
   font-size: 13px;
 }
 
+/* ---------- PAGINATION ---------- */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
+  font-family: var(--font-mono);
+}
+
+.page-indicator {
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
 /* ============================================================
    ADD VOCAB MODAL
    ============================================================ */

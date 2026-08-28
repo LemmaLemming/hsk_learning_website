@@ -1,6 +1,14 @@
 import type { VocabEntry } from "../types";
 
 const cache = new Map<number, VocabEntry[]>();
+// Secondary index: level -> (id -> entry) for O(1) lookups.
+const indexCache = new Map<number, Map<number, VocabEntry>>();
+
+function buildIndex(level: number, entries: VocabEntry[]): void {
+  const map = new Map<number, VocabEntry>();
+  for (const e of entries) map.set(e.id, e);
+  indexCache.set(level, map);
+}
 
 export async function loadLevel(level: number): Promise<VocabEntry[]> {
   const cached = cache.get(level);
@@ -11,6 +19,7 @@ export async function loadLevel(level: number): Promise<VocabEntry[]> {
   }
   const data = (await res.json()) as VocabEntry[];
   cache.set(level, data);
+  buildIndex(level, data);
   return data;
 }
 
@@ -26,7 +35,7 @@ export function getVocabById(
   level: number,
   id: number
 ): VocabEntry | undefined {
-  return cache.get(level)?.find((e) => e.id === id);
+  return indexCache.get(level)?.get(id);
 }
 
 export function getCacheLevel(level: number): VocabEntry[] | undefined {

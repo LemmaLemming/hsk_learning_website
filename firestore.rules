@@ -12,6 +12,7 @@ rules_version = '2';
 //   - visibleFields: list of string enum (required, <= 10 items)
 //     valid values: pinyin, toneNumber, wadeGiles, bopomofo, gwoyeu,
 //                   meaning, partsOfSpeech, radical, frequency, classifiers
+//   - pageSize: int enum [10, 25, 50, 100] (required, default 50)
 //   - onboardingComplete: bool (required, default false)
 //   - occupation: string enum | null
 //     ['student','working','professional','teacher','other'] (default null)
@@ -62,14 +63,16 @@ service cloud.firestore {
 
     function isValidUserDoc(data) {
       return data.keys().hasOnly(
-          ['displayName', 'characterType', 'visibleFields', 'onboardingComplete',
-           'occupation', 'targetLevels', 'createdAt', 'updatedAt'])
+          ['displayName', 'characterType', 'visibleFields', 'pageSize',
+           'onboardingComplete', 'occupation', 'targetLevels', 'createdAt', 'updatedAt'])
         && data.displayName is string
         && data.displayName.size() >= 1
         && data.displayName.size() <= 100
         && isCharacterType(data.characterType)
         && data.visibleFields is list
         && data.visibleFields.size() <= 10
+        && data.pageSize is int
+        && data.pageSize in [10, 25, 50, 100]
         && data.onboardingComplete is bool
         && (data.occupation == null
             || data.occupation in ['student', 'working', 'professional', 'teacher', 'other'])

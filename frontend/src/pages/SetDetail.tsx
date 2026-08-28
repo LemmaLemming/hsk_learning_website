@@ -36,9 +36,12 @@ export default function SetDetail() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const pageSize = prefs?.pageSize ?? 50;
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [showAdd, setShowAdd] = useState(false);
   const [subsetInput, setSubsetInput] = useState("");
+  const [version, setVersion] = useState(0);
+  const [page, setPage] = useState(0);
 
   // Load the set document
   useEffect(() => {
@@ -101,18 +104,23 @@ export default function SetDetail() {
   }, [items, vocabData]);
 
   // --- mutations -----------------------------------------------------------
+  // Bump the autosave version after every mutation (cheap change detection).
+  const bump = () => setVersion((v) => v + 1);
+
   const cycleStatus = (level: number, vocabId: number, status: VocabStatus) => {
     setItems((prev) =>
       prev.map((i) =>
         i.level === level && i.vocabId === vocabId ? { ...i, status } : i
       )
     );
+    bump();
   };
 
   const removeItem = (level: number, vocabId: number) => {
     setItems((prev) =>
       prev.filter((i) => !(i.level === level && i.vocabId === vocabId))
     );
+    bump();
   };
 
   const handleShuffle = () => {
@@ -125,24 +133,32 @@ export default function SetDetail() {
       }
       return arr;
     });
+    bump();
   };
 
   const applySubset = () => {
     const n = parseInt(subsetInput, 10);
-    setSubsetSize(Number.isFinite(n) && n > 0 ? n : null);
+    if (!Number.isFinite(n) || n <= 0) {
+      setSubsetSize(null);
+    } else {
+      setSubsetSize(Math.min(n, 100));
+    }
+    bump();
   };
 
   const addItems = (newItems: VocabItem[]) => {
     setShuffled(false);
     setItems((prev) => [...prev, ...newItems]);
+    bump();
   };
 
   // --- drag & drop (within a deck only; never between decks) ---------------
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
     if (result.source.droppableId !== result.destination.droppableId) return;
-    const deckIdx = Number(result.source.droppableId.replace("deck-", ""));
-    const deck = subsets[deckIdx];
+    const globalDeckIdx = Number(result.source.droppableId.replace("deck-", ""));
+    const localDeckIdx = globalDeckIdx - page * subsetsPerPage;
+    const deck = visibleSubsets[localDeckIdx];
     if (!deck) return;
 
     const reordered = [...deck];
@@ -167,10 +183,11 @@ export default function SetDetail() {
       }
       return out;
     });
+    bump();
   };
 
   // --- autosave ------------------------------------------------------------
-  const saveKey = JSON.stringify({ name, items, shuffled, subsetSize });
+  const saveKey = `${name}:${shuffled}:${subsetSize}:${version}`;
   const save = async () => {
     if (!user || !setId || !loaded) return;
     await updateSet(user.uid, setId, { name, items, shuffled, subsetSize });
@@ -197,6 +214,55 @@ export default function SetDetail() {
     }
     return out;
   }, [filteredHydrated, subsetSize]);
+
+  // How many subsets to show per page
+  const subsetsPerPage = useMemo(() => {
+    if (!subsetSize || subsetSize <= 0) {
+      // No daily decks — paginate by pageSize (individual cards)
+      return 1; // single "deck" paginated internally
+    }
+    if (pageSize < subsetSize) {
+      // Exception: page size smaller than deck size -> 1 deck per page
+      return 1;
+    }
+    return Math.floor(pageSize / subsetSize);
+  }, [pageSize, subsetSize]);
+
+  // Total pages
+  const totalPages = useMemo(() => {
+    if (!subsetSize || subsetSize <= 0) {
+      // Paginating individual cards within the single "deck"
+      return Math.max(1, Math.ceil(filteredHydrated.length / pageSize));
+    }
+    return Math.max(
+      1,
+      Math.ceil(subsets.length / subsetsPerPage)
+    );
+  }, [
+    subsets.length,
+    subsetsPerPage,
+    subsetSize,
+    filteredHydrated.length,
+    pageSize,
+  ]);
+
+  // The visible subsets for the current page
+  const visibleSubsets = useMemo(() => {
+    if (!subsetSize || subsetSize <= 0) {
+      // Single virtual "deck" — slice the cards by page
+      const start = page * pageSize;
+      const end = start + pageSize;
+      return [filteredHydrated.slice(start, end)];
+    }
+    const start = page * subsetsPerPage;
+    const end = start + subsetsPerPage;
+    return subsets.slice(start, end);
+  }, [subsets, page, subsetsPerPage, subsetSize, filteredHydrated, pageSize]);
+
+  // Reset to page 0 when data shape changes
+  useEffect(() => {
+    setPage(0);
+  }, [filter, subsetSize, shuffled]);
 
   const total = items.length;
 
@@ -248,6 +314,7 @@ export default function SetDetail() {
                 id="subset-size"
                 type="number"
                 min={1}
+                max={100}
                 placeholder="10"
                 value={subsetInput}
                 onChange={(e) => setSubsetInput(e.target.value)}
@@ -290,22 +357,24 @@ export default function SetDetail() {
           </div>
 
           {vocabLoading && <p className="loading">Loading vocab...</p>}
-          {!vocabLoading && subsets.length === 0 && (
+          {!vocabLoading && filteredHydrated.length === 0 && (
             <p className="placeholder">No items to show.</p>
           )}
-          {!vocabLoading && subsets.length > 0 && (
+          {!vocabLoading && filteredHydrated.length > 0 && (
             <DragDropContext onDragEnd={handleDragEnd}>
               <div className="daily-decks">
-                {subsets.map((subset, idx) => (
+                {visibleSubsets.map((subset, idx) => (
                   <fieldset key={idx} className="daily-deck">
                     <legend className="deck-legend">
-                      {subsets.length > 1
-                        ? `Day ${idx + 1} (${subset.length} word${
-                            subset.length === 1 ? "" : "s"
-                          })`
-                        : `All words (${subset.length})`}
+                      {subsetSize && subsetSize > 0
+                        ? `Day ${page * subsetsPerPage + idx + 1} (${
+                            subset.length
+                          } word${subset.length === 1 ? "" : "s"})`
+                        : `Showing ${subset.length} of ${
+                            filteredHydrated.length
+                          } word${filteredHydrated.length === 1 ? "" : "s"}`}
                     </legend>
-                    <Droppable droppableId={`deck-${idx}`}>
+                    <Droppable droppableId={`deck-${page * subsetsPerPage + idx}`}>
                       {(provided) => (
                         <div
                           className="vocab-card-list"
@@ -361,6 +430,28 @@ export default function SetDetail() {
                 ))}
               </div>
             </DragDropContext>
+          )}
+
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <button
+                className="retro-btn"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                [ &lt;&lt; Prev ]
+              </button>
+              <span className="page-indicator">
+                Page {page + 1} of {totalPages}
+              </span>
+              <button
+                className="retro-btn"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              >
+                [ Next &gt;&gt; ]
+              </button>
+            </div>
           )}
         </>
       )}
