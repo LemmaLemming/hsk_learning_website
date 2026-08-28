@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   DragDropContext,
@@ -7,23 +7,55 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd";
 import { useAuth } from "../contexts/AuthContext";
-import { getSet, updateSet, touchSet } from "../services/setService";
+import { getSet, updateSet, touchSet, saveLastPage } from "../services/setService";
 import { getOrCreateUserDoc } from "../services/userService";
 import { getVocabById } from "../services/vocabLoader";
 import { useVocabData } from "../hooks/useVocabData";
 import { useAutosave } from "../hooks/useAutosave";
 import VocabCard from "../components/VocabCard";
+import FlashcardDeck from "../components/FlashcardDeck";
 import AddVocabModal from "../components/AddVocabModal";
-import type {
-  HydratedVocabItem,
-  UserPreferences,
-  VocabItem,
-  VocabStatus,
+import {
+  DEFAULT_FLASHCARD_FRONT_FIELDS,
+  DEFAULT_FLASHCARD_BACK_FIELDS,
+  type HydratedVocabItem,
+  type UserPreferences,
+  type VocabItem,
+  type VocabStatus,
 } from "../types";
 
 type StatusFilter = VocabStatus | "all";
 
 const keyOf = (item: VocabItem) => `${item.level}:${item.vocabId}`;
+
+/**
+ * After a skip, rebalances the decks so each deck maintains subsetSize cards.
+ * When a card is skipped, the first card of the NEXT deck moves up to fill
+ * the gap. This cascades through all subsequent decks.
+ *
+ * Algorithm (O(n)):
+ * 1. Collect all non-skipped cards in their original order into a flat buffer.
+ * 2. Skipped cards are appended to the very end (last deck shrinks).
+ * 3. Decks are re-sliced from this buffer by subsetSize at render time, so
+ *    cards from the next deck automatically fill the gap — cascade implied.
+ */
+function rebalanceDecksAfterSkip(
+  items: VocabItem[],
+  _subsetSize: number
+): VocabItem[] {
+  // Separate skipped from non-skipped, preserving order
+  const active: VocabItem[] = [];
+  const skipped: VocabItem[] = [];
+  for (const item of items) {
+    if (item.status === "skipped") {
+      skipped.push(item);
+    } else {
+      active.push(item);
+    }
+  }
+  // Reassemble: non-skipped cards fill decks evenly, skipped go to the end
+  return [...active, ...skipped];
+}
 
 export default function SetDetail() {
   const { setId } = useParams();
@@ -55,6 +87,7 @@ export default function SetDetail() {
         setShuffled(s.shuffled ?? false);
         setSubsetSize(s.subsetSize ?? null);
         if (s.subsetSize) setSubsetInput(String(s.subsetSize));
+        setPage(s.lastDeckPage ?? 0);
         setLoaded(true);
       })
       .catch((e) => {
@@ -72,6 +105,15 @@ export default function SetDetail() {
       /* non-critical; ignore write failures */
     });
   }, [user, setId]);
+
+  // Persist the last studied deck page (flashcard mode) so the user resumes
+  // on the correct day when they return.
+  useEffect(() => {
+    if (!user || !setId || !loaded || !subsetSize) return;
+    saveLastPage(user.uid, setId, page).catch(() => {
+      /* non-critical */
+    });
+  }, [page, user, setId, loaded, subsetSize]);
 
   useEffect(() => {
     if (!user) return;
@@ -152,6 +194,20 @@ export default function SetDetail() {
     bump();
   };
 
+  // Skip cascade: mark skipped + rebalance decks (flashcard mode only).
+  const handleSkip = (level: number, vocabId: number) => {
+    if (!subsetSize) return; // no decks, no cascade needed
+    setItems((prev) => {
+      const withSkip = prev.map((i) =>
+        i.level === level && i.vocabId === vocabId
+          ? { ...i, status: "skipped" as VocabStatus }
+          : i
+      );
+      return rebalanceDecksAfterSkip(withSkip, subsetSize);
+    });
+    bump();
+  };
+
   // --- drag & drop (within a deck only; never between decks) ---------------
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -218,15 +274,11 @@ export default function SetDetail() {
   // How many subsets to show per page
   const subsetsPerPage = useMemo(() => {
     if (!subsetSize || subsetSize <= 0) {
-      // No daily decks — paginate by pageSize (individual cards)
-      return 1; // single "deck" paginated internally
+      return 1; // no decks — paginate individual cards by pageSize
     }
-    if (pageSize < subsetSize) {
-      // Exception: page size smaller than deck size -> 1 deck per page
-      return 1;
-    }
-    return Math.floor(pageSize / subsetSize);
-  }, [pageSize, subsetSize]);
+    // Flashcard mode: always exactly 1 deck per page
+    return 1;
+  }, [subsetSize]);
 
   // Total pages
   const totalPages = useMemo(() => {
@@ -259,10 +311,17 @@ export default function SetDetail() {
     return subsets.slice(start, end);
   }, [subsets, page, subsetsPerPage, subsetSize, filteredHydrated, pageSize]);
 
-  // Reset to page 0 when data shape changes
+  // Reset to page 0 when data shape changes — but skip the initial load so
+  // the restored lastDeckPage survives the first post-load render.
+  const pageInitRef = useRef(false);
   useEffect(() => {
+    if (!loaded) return;
+    if (!pageInitRef.current) {
+      pageInitRef.current = true;
+      return;
+    }
     setPage(0);
-  }, [filter, subsetSize, shuffled]);
+  }, [filter, subsetSize, shuffled, loaded]);
 
   const total = items.length;
 
@@ -361,97 +420,127 @@ export default function SetDetail() {
             <p className="placeholder">No items to show.</p>
           )}
           {!vocabLoading && filteredHydrated.length > 0 && (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="daily-decks">
-                {visibleSubsets.map((subset, idx) => (
-                  <fieldset key={idx} className="daily-deck">
-                    <legend className="deck-legend">
-                      {subsetSize && subsetSize > 0
-                        ? `Day ${page * subsetsPerPage + idx + 1} (${
-                            subset.length
-                          } word${subset.length === 1 ? "" : "s"})`
-                        : `Showing ${subset.length} of ${
-                            filteredHydrated.length
-                          } word${filteredHydrated.length === 1 ? "" : "s"}`}
-                    </legend>
-                    <Droppable droppableId={`deck-${page * subsetsPerPage + idx}`}>
-                      {(provided) => (
-                        <div
-                          className="vocab-card-list"
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                        >
-                          {subset.map((h, index) => (
-                            <Draggable
-                              key={keyOf(h.item)}
-                              draggableId={keyOf(h.item)}
-                              index={index}
+            <>
+              {subsetSize && subsetSize > 0 ? (
+                /* FLASHCARD MODE — one deck per page, stacked flashcards */
+                <>
+                  {visibleSubsets[0] && (
+                    <FlashcardDeck
+                      key={page} // reset component state when page changes
+                      deck={visibleSubsets[0]}
+                      deckIndex={page + 1}
+                      characterType={prefs?.characterType ?? "simplified"}
+                      frontFields={
+                        prefs?.flashcardFrontFields ??
+                        DEFAULT_FLASHCARD_FRONT_FIELDS
+                      }
+                      backFields={
+                        prefs?.flashcardBackFields ??
+                        DEFAULT_FLASHCARD_BACK_FIELDS
+                      }
+                      onStatusChange={cycleStatus}
+                      onSkip={handleSkip}
+                      onDeckComplete={() => {
+                        /* optional: could auto-advance to next day here */
+                      }}
+                    />
+                  )}
+                </>
+              ) : (
+                /* LIST MODE (existing drag-and-drop) */
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <div className="daily-decks">
+                    {visibleSubsets.map((subset, idx) => (
+                      <fieldset key={idx} className="daily-deck">
+                        <legend className="deck-legend">
+                          {subsetSize && subsetSize > 0
+                            ? `Day ${page * subsetsPerPage + idx + 1} (${
+                                subset.length
+                              } word${subset.length === 1 ? "" : "s"})`
+                            : `Showing ${subset.length} of ${
+                                filteredHydrated.length
+                              } word${filteredHydrated.length === 1 ? "" : "s"}`}
+                        </legend>
+                        <Droppable droppableId={`deck-${page * subsetsPerPage + idx}`}>
+                          {(provided) => (
+                            <div
+                              className="vocab-card-list"
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
                             >
-                              {(dragProvided, snapshot) => (
-                                <div
-                                  ref={dragProvided.innerRef}
-                                  {...dragProvided.draggableProps}
-                                  className={
-                                    snapshot.isDragging ? "dragging" : ""
-                                  }
+                              {subset.map((h, index) => (
+                                <Draggable
+                                  key={keyOf(h.item)}
+                                  draggableId={keyOf(h.item)}
+                                  index={index}
                                 >
-                                  <div className="vocab-card-row">
-                                    <span
-                                      className="drag-handle"
-                                      {...dragProvided.dragHandleProps}
-                                      title="Drag to reorder"
+                                  {(dragProvided, snapshot) => (
+                                    <div
+                                      ref={dragProvided.innerRef}
+                                      {...dragProvided.draggableProps}
+                                      className={
+                                        snapshot.isDragging ? "dragging" : ""
+                                      }
                                     >
-                                      ⠿
-                                    </span>
-                                    <VocabCard
-                                      hydrated={h}
-                                      characterType={
-                                        prefs?.characterType ?? "simplified"
-                                      }
-                                      visibleFields={
-                                        prefs?.visibleFields ?? [
-                                          "pinyin",
-                                          "meaning",
-                                        ]
-                                      }
-                                      onCycleStatus={cycleStatus}
-                                      onRemove={removeItem}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </fieldset>
-                ))}
-              </div>
-            </DragDropContext>
-          )}
+                                      <div className="vocab-card-row">
+                                        <span
+                                          className="drag-handle"
+                                          {...dragProvided.dragHandleProps}
+                                          title="Drag to reorder"
+                                        >
+                                          ⠿
+                                        </span>
+                                        <VocabCard
+                                          hydrated={h}
+                                          characterType={
+                                            prefs?.characterType ?? "simplified"
+                                          }
+                                          visibleFields={
+                                            prefs?.visibleFields ?? [
+                                              "pinyin",
+                                              "meaning",
+                                            ]
+                                          }
+                                          onCycleStatus={cycleStatus}
+                                          onRemove={removeItem}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      </fieldset>
+                    ))}
+                  </div>
+                </DragDropContext>
+              )}
 
-          {totalPages > 1 && (
-            <div className="pagination-controls">
-              <button
-                className="retro-btn"
-                disabled={page === 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-              >
-                [ &lt;&lt; Prev ]
-              </button>
-              <span className="page-indicator">
-                Page {page + 1} of {totalPages}
-              </span>
-              <button
-                className="retro-btn"
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              >
-                [ Next &gt;&gt; ]
-              </button>
-            </div>
+              {totalPages > 1 && (
+                <div className="pagination-controls">
+                  <button
+                    className="retro-btn"
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  >
+                    [ &lt;&lt; Prev ]
+                  </button>
+                  <span className="page-indicator">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <button
+                    className="retro-btn"
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  >
+                    [ Next &gt;&gt; ]
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

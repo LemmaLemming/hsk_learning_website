@@ -39,6 +39,31 @@ function statusCounts(set: SetWithId) {
   return counts;
 }
 
+/**
+ * Days learnt info for a split set: how many decks have ALL cards learnt.
+ * Returns null for non-split sets.
+ */
+function daysLearntInfo(set: SetWithId): { done: number; total: number } | null {
+  if (!set.subsetSize || set.subsetSize <= 0) return null;
+  const size = set.subsetSize;
+  const items = set.items ?? [];
+  const total = Math.ceil(items.length / size);
+  let done = 0;
+  for (let d = 0; d < total; d++) {
+    const start = d * size;
+    const end = Math.min(start + size, items.length);
+    let deckDone = true;
+    for (let i = start; i < end; i++) {
+      if (items[i].status !== "learnt") {
+        deckDone = false;
+        break;
+      }
+    }
+    if (deckDone) done++;
+  }
+  return { done, total };
+}
+
 export default function SetList() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -90,6 +115,8 @@ export default function SetList() {
   const handleSaveSettings = async (p: {
     characterType: CharacterType;
     visibleFields: VisibleField[];
+    flashcardFrontFields: VisibleField[];
+    flashcardBackFields: VisibleField[];
     pageSize: PageSize;
   }) => {
     if (!user) return;
@@ -230,6 +257,7 @@ export default function SetList() {
               <th>Learnt</th>
               <th>Skipped</th>
               <th>Created</th>
+              <th>Days learnt</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -245,6 +273,13 @@ export default function SetList() {
                   <td>{counts.learnt}</td>
                   <td>{counts.skipped}</td>
                   <td>{formatDate(set.createdAt)}</td>
+                  <td>
+                    {(() => {
+                      const info = daysLearntInfo(set);
+                      if (!info) return "—";
+                      return `${info.done}/${info.total}`;
+                    })()}
+                  </td>
                   <td
                     className="actions-cell"
                     onClick={(e) => e.stopPropagation()}

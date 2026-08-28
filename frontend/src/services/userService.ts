@@ -9,6 +9,8 @@ import type { User } from "firebase/auth";
 import { db } from "../firebase/firebaseConfig";
 import {
   DEFAULT_VISIBLE_FIELDS,
+  DEFAULT_FLASHCARD_FRONT_FIELDS,
+  DEFAULT_FLASHCARD_BACK_FIELDS,
   type CharacterType,
   type Occupation,
   type PageSize,
@@ -25,6 +27,8 @@ export function userDocRef(uid: string) {
 export interface UserPrefUpdate {
   characterType?: CharacterType;
   visibleFields?: VisibleField[];
+  flashcardFrontFields?: VisibleField[];
+  flashcardBackFields?: VisibleField[];
   pageSize?: PageSize;
   onboardingComplete?: boolean;
   occupation?: Occupation | null;
@@ -41,10 +45,21 @@ export async function getOrCreateUserDoc(
     // If the doc predates the onboarding fields (e.g. created before the
     // rules update), merge in the defaults so the Firestore rules still
     // accept future writes to it.
-    if (data.onboardingComplete == null || data.occupation === undefined || data.targetLevels === undefined || data.pageSize === undefined) {
+    if (
+      data.onboardingComplete == null ||
+      data.occupation === undefined ||
+      data.targetLevels === undefined ||
+      data.pageSize === undefined ||
+      data.flashcardFrontFields === undefined ||
+      data.flashcardBackFields === undefined
+    ) {
       const migrated: UserPreferences = {
         ...data,
         pageSize: data.pageSize ?? 50,
+        flashcardFrontFields:
+          data.flashcardFrontFields ?? DEFAULT_FLASHCARD_FRONT_FIELDS,
+        flashcardBackFields:
+          data.flashcardBackFields ?? DEFAULT_FLASHCARD_BACK_FIELDS,
         onboardingComplete: data.onboardingComplete ?? false,
         occupation: data.occupation ?? null,
         targetLevels: data.targetLevels ?? [],
@@ -58,6 +73,8 @@ export async function getOrCreateUserDoc(
     displayName: user.displayName ?? user.email ?? "User",
     characterType: "simplified",
     visibleFields: DEFAULT_VISIBLE_FIELDS,
+    flashcardFrontFields: DEFAULT_FLASHCARD_FRONT_FIELDS,
+    flashcardBackFields: DEFAULT_FLASHCARD_BACK_FIELDS,
     pageSize: 50,
     onboardingComplete: false,
     occupation: null,

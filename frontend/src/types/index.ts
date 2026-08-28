@@ -42,6 +42,9 @@ export type VisibleField = (typeof ALL_VISIBLE_FIELDS)[number];
 
 export const DEFAULT_VISIBLE_FIELDS: VisibleField[] = ["pinyin", "meaning"];
 
+export const DEFAULT_FLASHCARD_FRONT_FIELDS: VisibleField[] = []; // character only (no extra fields on front)
+export const DEFAULT_FLASHCARD_BACK_FIELDS: VisibleField[] = ["pinyin", "meaning"];
+
 export const PAGE_SIZES = [10, 25, 50, 100] as const;
 export type PageSize = (typeof PAGE_SIZES)[number];
 
@@ -63,7 +66,9 @@ export const OCCUPATIONS: Occupation[] = [
 export interface UserPreferences {
   displayName: string;
   characterType: CharacterType;
-  visibleFields: VisibleField[];
+  visibleFields: VisibleField[]; // used in LIST view (existing)
+  flashcardFrontFields: VisibleField[]; // NEW: shown before flip (default: [] = character only)
+  flashcardBackFields: VisibleField[]; // NEW: shown after flip (default: ["pinyin", "meaning"])
   pageSize: number; // default: 50, valid values: 10, 25, 50, 100
   // New: onboarding fields
   onboardingComplete: boolean; // default: false
@@ -89,6 +94,7 @@ export interface VocabSetDoc {
   shuffled: boolean;
   subsetSize: number | null;
   lastAccessedAt: Timestamp | null; // set when user opens the set
+  lastDeckPage: number | null; // which deck page the user last studied (0-indexed); null if unset
   items: VocabItem[];
 }
 
