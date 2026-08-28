@@ -803,6 +803,17 @@ label {
   color: var(--accent);
   font-family: var(--font-mono);
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-link:hover {
+  color: #990000;
+}
+
+.trash-icon {
+  display: block;
 }
 
 /* ---------- PAGINATION ---------- */

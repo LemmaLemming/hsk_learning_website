@@ -100,13 +100,29 @@ export default function VocabCard({
         <a
           className="remove-link"
           href="#"
-          aria-label={`Remove ${char}`}
+          aria-label={`Remove ${char} from set`}
+          title="Remove from set"
           onClick={(e) => {
             e.preventDefault();
             onRemove(hydrated.item.level, hydrated.item.vocabId);
           }}
         >
-          [X]
+          <svg
+            className="trash-icon"
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            aria-hidden="true"
+            focusable="false"
+          >
+            {/* retro trash can: sharp corners, no rounding */}
+            <path
+              d="M2 3h12M5.5 3V1.5h5V3M4 3l1 11.5h6L12 3M6.5 6v5M9.5 6v5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+          </svg>
         </a>
       </div>
     </div>
