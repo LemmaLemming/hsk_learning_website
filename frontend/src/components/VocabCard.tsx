@@ -14,6 +14,12 @@ const STATUS_TAG: Record<VocabStatus, string> = {
 
 const STATUS_ORDER: VocabStatus[] = ["unlearned", "learnt", "skipped"];
 
+const STATUS_INDEX: Record<VocabStatus, number> = {
+  unlearned: 0,
+  learnt: 1,
+  skipped: 2,
+};
+
 const FIELD_LABELS: Record<VisibleField, string> = {
   pinyin: "Pinyin",
   toneNumber: "Tone number",
@@ -72,12 +78,18 @@ export default function VocabCard({
         </div>
       </div>
       <div className="vocab-actions">
-        <div className="status-segmented" role="group" aria-label="Learning status">
+        <div className="tri-toggle" role="group" aria-label="Learning status">
+          <div className="tri-track" aria-hidden="true">
+            <span
+              className="tri-thumb"
+              style={{ transform: `translateX(${STATUS_INDEX[status] * 100}%)` }}
+            />
+          </div>
           {STATUS_ORDER.map((s) => (
             <button
               key={s}
               type="button"
-              className={`seg-btn ${s} ${status === s ? "active" : ""}`}
+              className={`tri-slot ${s} ${status === s ? "active" : ""}`}
               aria-pressed={status === s}
               onClick={() => setStatus(s)}
             >

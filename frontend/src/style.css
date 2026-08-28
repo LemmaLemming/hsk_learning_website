@@ -709,54 +709,71 @@ label {
   padding: 0 4px;
 }
 
-/* ---------- Ternary status segmented control ---------- */
-.status-segmented {
-  display: inline-flex;
+/* ---------- Ternary status: sliding toggle (inset track + moving thumb) ---------- */
+.tri-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   border: 1px solid var(--border-dark);
+  background: #fff;
+  user-select: none;
 }
 
-.seg-btn {
+.tri-track {
+  position: absolute;
+  inset: 2px;
+  border: 2px inset #bbbbbb;
+  background: #e8e8e8;
+  pointer-events: none;
+}
+
+/* The raised "button" that slides horizontally */
+.tri-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 33.3333%;
+  height: 100%;
+  background: #ffffff;
+  border: 2px outset var(--border);
+  box-sizing: border-box;
+  transition: transform 0.2s ease;
+  pointer-events: none;
+}
+
+.tri-slot {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-mono);
   font-size: 12px;
-  padding: 4px 8px;
-  background: #eee;
-  color: var(--text-dim);
+  padding: 5px 8px;
+  background: transparent;
   border: none;
-  border-right: 1px solid var(--border);
   cursor: pointer;
+  color: var(--text-dim);
 }
 
-.seg-btn:last-child {
-  border-right: none;
-}
-
-.seg-btn:hover {
-  background: #ddd;
-}
-
-.seg-btn:focus {
-  outline: none;
-}
-
-/* Active segment = pressed look + status colour */
-.seg-btn.active {
-  font-weight: bold;
-  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.25);
-}
-
-.seg-btn.unlearned.active {
-  background: #ccc;
+.tri-slot:hover {
   color: var(--text);
 }
 
-.seg-btn.learnt.active {
-  background: #ddffdd;
-  color: var(--success);
+.tri-slot:focus {
+  outline: none;
 }
 
-.seg-btn.skipped.active {
-  background: #ffecd9;
+.tri-slot.active.unlearned {
+  color: var(--text);
+  font-weight: bold;
+}
+
+.tri-slot.active.learnt {
+  color: var(--success);
+  font-weight: bold;
+}
+
+.tri-slot.active.skipped {
   color: var(--warn);
+  font-weight: bold;
 }
 
 .vocab-fields {
