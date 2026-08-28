@@ -125,6 +125,22 @@ export default function Login() {
         </fieldset>
       </form>
 
+      <div className="google-row">
+        <button
+          type="button"
+          className="retro-btn google-btn"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+        >
+          <img
+            src="/old_google_button.png"
+            alt="Google"
+            className="google-logo"
+          />
+          Sign in
+        </button>
+      </div>
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -182,11 +198,16 @@ export default function Login() {
       <div className="google-row">
         <button
           type="button"
-          className="retro-btn"
+          className="retro-btn google-btn"
           onClick={handleGoogleSignIn}
           disabled={loading}
         >
-          [ Sign in with Google ]
+          <img
+            src="/old_google_button.png"
+            alt="Google"
+            className="google-logo"
+          />
+          Sign in
         </button>
       </div>
 

@@ -373,6 +373,19 @@ label {
 
 .google-row {
   text-align: center;
+  margin: 4px 0 16px;
+}
+
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+}
+
+.google-logo {
+  height: 22px;
+  width: auto;
 }
 
 /* ============================================================
