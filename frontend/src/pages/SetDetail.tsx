@@ -421,6 +421,28 @@ export default function SetDetail() {
           )}
           {!vocabLoading && filteredHydrated.length > 0 && (
             <>
+              {totalPages > 1 && (
+                <div className="pagination-controls">
+                  <button
+                    className="retro-btn"
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  >
+                    [ &lt;&lt; Prev ]
+                  </button>
+                  <span className="page-indicator">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <button
+                    className="retro-btn"
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  >
+                    [ Next &gt;&gt; ]
+                  </button>
+                </div>
+              )}
+
               {subsetSize && subsetSize > 0 ? (
                 /* FLASHCARD MODE — one deck per page, stacked flashcards */
                 <>
@@ -517,28 +539,6 @@ export default function SetDetail() {
                     ))}
                   </div>
                 </DragDropContext>
-              )}
-
-              {totalPages > 1 && (
-                <div className="pagination-controls">
-                  <button
-                    className="retro-btn"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  >
-                    [ &lt;&lt; Prev ]
-                  </button>
-                  <span className="page-indicator">
-                    Page {page + 1} of {totalPages}
-                  </span>
-                  <button
-                    className="retro-btn"
-                    disabled={page >= totalPages - 1}
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  >
-                    [ Next &gt;&gt; ]
-                  </button>
-                </div>
               )}
             </>
           )}
