@@ -13,6 +13,8 @@ rules_version = '2';
 //     valid values: pinyin, toneNumber, wadeGiles, bopomofo, gwoyeu,
 //                   meaning, partsOfSpeech, radical, frequency, classifiers
 //   - pageSize: int enum [10, 25, 50, 100] (required, default 50)
+//   - flashcardFrontFields: list of VisibleField string (required, <= 10, default [])
+//   - flashcardBackFields: list of VisibleField string (required, <= 10, default ["pinyin","meaning"])
 //   - onboardingComplete: bool (required, default false)
 //   - occupation: string enum | null
 //     ['student','working','professional','teacher','other'] (default null)
@@ -29,6 +31,7 @@ rules_version = '2';
 //   - shuffled: bool (required)
 //   - subsetSize: int | null (required; null or 1-10000)
 //   - lastAccessedAt: timestamp | null (required; set when user opens the set)
+//   - lastDeckPage: int | null (deck page index last studied; null if unset)
 //   - items: list of VocabItem (required, <= 20000 items)
 //     VocabItem = { level: int 1-7, vocabId: int >=1, status: enum
 //                   ['unlearned','learnt','skipped'] }
@@ -63,14 +66,19 @@ service cloud.firestore {
 
     function isValidUserDoc(data) {
       return data.keys().hasOnly(
-          ['displayName', 'characterType', 'visibleFields', 'pageSize',
-           'onboardingComplete', 'occupation', 'targetLevels', 'createdAt', 'updatedAt'])
+          ['displayName', 'characterType', 'visibleFields', 'flashcardFrontFields',
+           'flashcardBackFields', 'pageSize', 'onboardingComplete', 'occupation',
+           'targetLevels', 'createdAt', 'updatedAt'])
         && data.displayName is string
         && data.displayName.size() >= 1
         && data.displayName.size() <= 100
         && isCharacterType(data.characterType)
         && data.visibleFields is list
         && data.visibleFields.size() <= 10
+        && data.flashcardFrontFields is list
+        && data.flashcardFrontFields.size() <= 10
+        && data.flashcardBackFields is list
+        && data.flashcardBackFields.size() <= 10
         && data.pageSize is int
         && data.pageSize in [10, 25, 50, 100]
         && data.onboardingComplete is bool
@@ -86,7 +94,7 @@ service cloud.firestore {
     // enforcement (if ever required) must happen server-side or in the app.
     function isValidSetDoc(data) {
       return data.keys().hasOnly(
-          ['name', 'createdAt', 'updatedAt', 'shuffled', 'subsetSize', 'lastAccessedAt', 'items'])
+          ['name', 'createdAt', 'updatedAt', 'shuffled', 'subsetSize', 'lastAccessedAt', 'lastDeckPage', 'items'])
         && data.name is string
         && data.name.size() >= 1
         && data.name.size() <= 100
@@ -94,6 +102,8 @@ service cloud.firestore {
         && (data.subsetSize == null
             || (data.subsetSize is int && data.subsetSize >= 1 && data.subsetSize <= 10000))
         && (data.lastAccessedAt == null || data.lastAccessedAt is timestamp)
+        && (data.lastDeckPage == null
+            || (data.lastDeckPage is int && data.lastDeckPage >= 0))
         && data.items is list
         && data.items.size() <= 20000;
     }

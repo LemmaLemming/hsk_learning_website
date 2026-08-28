@@ -2,6 +2,8 @@ import { useState } from "react";
 import {
   ALL_VISIBLE_FIELDS,
   PAGE_SIZES,
+  DEFAULT_FLASHCARD_FRONT_FIELDS,
+  DEFAULT_FLASHCARD_BACK_FIELDS,
   type CharacterType,
   type PageSize,
   type UserPreferences,
@@ -26,6 +28,8 @@ interface Props {
   onSave: (prefs: {
     characterType: CharacterType;
     visibleFields: VisibleField[];
+    flashcardFrontFields: VisibleField[];
+    flashcardBackFields: VisibleField[];
     pageSize: PageSize;
   }) => Promise<void> | void;
 }
@@ -37,6 +41,12 @@ export default function GlobalSettings({ prefs, onSave }: Props) {
   const [visibleFields, setVisibleFields] = useState<VisibleField[]>(
     prefs.visibleFields
   );
+  const [flashcardFrontFields, setFlashcardFrontFields] = useState<
+    VisibleField[]
+  >(prefs.flashcardFrontFields ?? DEFAULT_FLASHCARD_FRONT_FIELDS);
+  const [flashcardBackFields, setFlashcardBackFields] = useState<
+    VisibleField[]
+  >(prefs.flashcardBackFields ?? DEFAULT_FLASHCARD_BACK_FIELDS);
   const [pageSize, setPageSize] = useState<PageSize>(
     (PAGE_SIZES as readonly number[]).includes(prefs.pageSize)
       ? (prefs.pageSize as PageSize)
@@ -57,7 +67,13 @@ export default function GlobalSettings({ prefs, onSave }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave({ characterType, visibleFields, pageSize });
+      await onSave({
+        characterType,
+        visibleFields,
+        flashcardFrontFields,
+        flashcardBackFields,
+        pageSize,
+      });
       setSaved(true);
     } finally {
       setSaving(false);
@@ -122,6 +138,53 @@ export default function GlobalSettings({ prefs, onSave }: Props) {
             >
               {size}
             </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="setting-group">
+        <label className="setting-label">Flashcard front (before flip)</label>
+        <p className="setting-note">Character always shown. Add extra fields below:</p>
+        <div className="check-list">
+          {ALL_VISIBLE_FIELDS.map((field) => (
+            <label key={field} className="check-item">
+              <input
+                type="checkbox"
+                checked={flashcardFrontFields.includes(field)}
+                onChange={() => {
+                  setSaved(false);
+                  setFlashcardFrontFields((prev) =>
+                    prev.includes(field)
+                      ? prev.filter((f) => f !== field)
+                      : [...prev, field]
+                  );
+                }}
+              />
+              <span>{FIELD_LABELS[field]}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="setting-group">
+        <label className="setting-label">Flashcard back (after flip)</label>
+        <div className="check-list">
+          {ALL_VISIBLE_FIELDS.map((field) => (
+            <label key={field} className="check-item">
+              <input
+                type="checkbox"
+                checked={flashcardBackFields.includes(field)}
+                onChange={() => {
+                  setSaved(false);
+                  setFlashcardBackFields((prev) =>
+                    prev.includes(field)
+                      ? prev.filter((f) => f !== field)
+                      : [...prev, field]
+                  );
+                }}
+              />
+              <span>{FIELD_LABELS[field]}</span>
+            </label>
           ))}
         </div>
       </div>

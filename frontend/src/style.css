@@ -830,6 +830,187 @@ label {
   color: var(--text-dim);
 }
 
+/* ---------- FLASHCARD DECK ---------- */
+.flashcard-scene {
+  perspective: 1000px;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto 20px;
+}
+
+.flashcard-stack {
+  position: relative;
+  height: 280px; /* Fixed height for the stack area */
+}
+
+/* Ghost cards behind — visual depth illusion */
+.flashcard-ghost {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--border);
+  background: #f0f0f0;
+}
+
+.flashcard-ghost:nth-child(1) {
+  transform: translate(6px, 6px);
+  z-index: 1;
+}
+
+.flashcard-ghost:nth-child(2) {
+  transform: translate(3px, 3px);
+  z-index: 2;
+}
+
+/* The active flippable card */
+.flashcard-wrapper {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  transform-style: preserve-3d;
+  transition: transform 0.45s ease-in-out;
+  cursor: pointer;
+}
+
+.flashcard-wrapper.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border: 2px solid var(--border-dark);
+  background: var(--bg-card);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.flashcard-face.back {
+  transform: rotateY(180deg);
+  background: #fffff0; /* slight cream tint to distinguish back */
+}
+
+.flashcard-char {
+  font-family: var(--font-hanzi);
+  font-size: 72px;
+  line-height: 1;
+  text-align: center;
+}
+
+.flashcard-field {
+  font-family: var(--font-body);
+  font-size: 16px;
+  text-align: center;
+}
+
+.flashcard-field-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+
+.flashcard-hint {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+
+.flashcard-level-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 0 4px;
+}
+
+/* Status buttons — shown only after flip */
+.flashcard-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.flashcard-status-btn {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 8px 18px;
+  border: 2px outset var(--border);
+  background: #ddd;
+  cursor: pointer;
+}
+
+.flashcard-status-btn:active {
+  border-style: inset;
+}
+
+.flashcard-status-btn.learnt {
+  background: #ddffdd;
+}
+
+.flashcard-status-btn.skipped {
+  background: #ffecd9;
+}
+
+.flashcard-status-btn.unlearned {
+  background: #ddd;
+}
+
+/* Counter and progress */
+.flashcard-meta {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+/* Congrats popup overlay */
+.congrats-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.congrats-box {
+  background: var(--bg-card);
+  border: 4px ridge var(--border-dark);
+  padding: 32px 28px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+}
+
+.congrats-box h2 {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+.congrats-box p {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  margin-bottom: 20px;
+  color: var(--text-dim);
+}
+
+.congrats-stars {
+  font-size: 36px;
+  margin-bottom: 12px;
+  display: block;
+}
+
 /* ============================================================
    ADD VOCAB MODAL
    ============================================================ */
@@ -925,6 +1106,13 @@ label {
   display: block;
   font-family: var(--font-mono);
   font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.setting-note {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
   margin-bottom: 6px;
 }
 
